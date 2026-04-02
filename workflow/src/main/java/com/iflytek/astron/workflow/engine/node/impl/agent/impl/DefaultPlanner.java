@@ -17,19 +17,39 @@ import java.util.UUID;
 
 /**
  * 默认规划器实现
- * 使用 LLM 进行任务拆解
+ * 支持 LLM 驱动规划和无 LLM 的简单规划
  */
 @Slf4j
 public class DefaultPlanner implements Planner {
 
     private final PlannerConfig config;
+    private final ModelClient modelClient;
+
+    /**
+     * 模型客户端接口（供外部注入）
+     */
+    public interface ModelClient {
+        String chat(String prompt);
+    }
 
     public DefaultPlanner() {
         this.config = new PlannerConfig();
+        this.modelClient = null;
     }
 
     public DefaultPlanner(PlannerConfig config) {
         this.config = config;
+        this.modelClient = null;
+    }
+
+    public DefaultPlanner(ModelClient modelClient) {
+        this.config = new PlannerConfig();
+        this.modelClient = modelClient;
+    }
+
+    public DefaultPlanner(PlannerConfig config, ModelClient modelClient) {
+        this.config = config;
+        this.modelClient = modelClient;
     }
 
     @Override
@@ -40,17 +60,23 @@ public class DefaultPlanner implements Planner {
             // 构建规划提示
             String planningPrompt = buildPlanningPrompt(task, availableTools);
 
-            // 调用 LLM 生成计划
-            String llmResponse = callLLMForPlanning(planningPrompt);
+            // 调用 LLM 生成计划（如果有注入 ModelClient）
+            String llmResponse = null;
+            if (modelClient != null && config.isEnableLlmPlanning()) {
+                llmResponse = modelClient.chat(planningPrompt);
+            }
 
             // 解析计划
-            List<Step> steps = parsePlanSteps(llmResponse);
+            List<Step> steps = parsePlanSteps(llmResponse, task);
 
             if (steps.isEmpty()) {
-                // 如果解析失败，生成默认计划（单个步骤）
-                log.warn("Failed to parse plan from LLM response, using single step plan");
+                // 如果解析失败或无 LLM，生成默认计划（单个步骤）
+                log.warn("Failed to parse plan, using single step plan");
                 Step defaultStep = new Step(1, task.getDescription());
                 defaultStep.setGoal(task.getGoal());
+                if (!availableTools.isEmpty()) {
+                    defaultStep.setToolName(availableTools.get(0));
+                }
                 steps.add(defaultStep);
             }
 
@@ -72,12 +98,19 @@ public class DefaultPlanner implements Planner {
     public Plan revisePlan(Plan currentPlan, Step failedStep, String error) {
         log.info("Revising plan due to step failure: {}", failedStep.getDescription());
 
+        // 如果没有 LLM 客户端，返回失败计划
+        if (modelClient == null || !config.isEnableLlmPlanning()) {
+            currentPlan.setStatus(Plan.PlanStatus.FAILED);
+            currentPlan.setFailureReason("Step failed and no LLM client available for revision: " + error);
+            return currentPlan;
+        }
+
         // 构建修正提示
         String revisePrompt = buildRevisePrompt(currentPlan, failedStep, error);
 
         try {
-            String llmResponse = callLLMForPlanning(revisePrompt);
-            List<Step> newSteps = parsePlanSteps(llmResponse);
+            String llmResponse = modelClient.chat(revisePrompt);
+            List<Step> newSteps = parsePlanSteps(llmResponse, null);
 
             if (!newSteps.isEmpty()) {
                 // 创建新计划，保留已完成步骤
@@ -198,20 +231,15 @@ public class DefaultPlanner implements Planner {
     }
 
     /**
-     * 调用 LLM 生成计划（这里需要注入 ModelServiceClient）
-     */
-    protected String callLLMForPlanning(String prompt) {
-        // TODO: 实际调用需要注入 ModelServiceClient
-        // 目前返回空实现，由子类或外部注入实现
-        throw new UnsupportedOperationException(
-                "callLLMForPlanning must be implemented or ModelServiceClient must be injected");
-    }
-
-    /**
      * 解析计划步骤
      */
-    protected List<Step> parsePlanSteps(String llmResponse) {
+    protected List<Step> parsePlanSteps(String llmResponse, Task task) {
         List<Step> steps = new ArrayList<>();
+
+        // 如果 LLM 响应为空，直接返回空列表
+        if (llmResponse == null || llmResponse.trim().isEmpty()) {
+            return steps;
+        }
 
         try {
             // 提取 JSON 部分

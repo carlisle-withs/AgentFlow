@@ -32,13 +32,8 @@ public class DefaultMemory implements Memory {
     @Override
     public void add(MemoryItem item) {
         if (item == null) return;
-
         memories.add(item);
-
-        // 检查是否需要自动压缩
-        if (config.isAutoCompress() && needsCompression(config.getMaxTokens())) {
-            compress(config.getMaxTokens());
-        }
+        // 注意：压缩由外部（Agent主循环）控制，这里不做自动压缩
     }
 
     @Override
@@ -228,9 +223,9 @@ public class DefaultMemory implements Memory {
         private int maxTokens = 8000;
 
         /**
-         * 是否自动压缩
+         * 是否自动压缩（默认false，由外部控制压缩时机）
          */
-        private boolean autoCompress = true;
+        private boolean autoCompress = false;
 
         /**
          * 压缩保留的关键记忆数

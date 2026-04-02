@@ -47,30 +47,31 @@ public class Agent {
      */
     private Map<String, Object> executionContext;
 
-    public Agent() {
-        this(new AgentConfig());
-    }
-
-    public Agent(AgentConfig config) {
-        this.config = config;
-        this.planner = new DefaultPlanner();
-        this.reflect = new DefaultReflect();
-        this.memory = new DefaultMemory();
-        this.react = null; // 需要外部注入
-        this.executionContext = new HashMap<>();
-    }
-
-    public Agent(Planner planner, ReAct react, Reflect reflect, Memory memory) {
-        this(planner, react, reflect, memory, new AgentConfig());
-    }
-
+    /**
+     * 私有构造函数，强制使用组件注入
+     */
     public Agent(Planner planner, ReAct react, Reflect reflect, Memory memory, AgentConfig config) {
         this.planner = planner;
         this.react = react;
         this.reflect = reflect;
         this.memory = memory;
-        this.config = config;
+        this.config = config != null ? config : new AgentConfig();
         this.executionContext = new HashMap<>();
+    }
+
+    /**
+     * 静态工厂方法 - 创建带默认实现的 Agent
+     * 注意：ReAct 需要外部注入，否则执行会失败
+     */
+    public static Agent createWithDefaults(AgentConfig config) {
+        Agent agent = new Agent(
+                new DefaultPlanner(),
+                null, // ReAct 需要外部注入
+                new DefaultReflect(),
+                new DefaultMemory(),
+                config
+        );
+        return agent;
     }
 
     /**
