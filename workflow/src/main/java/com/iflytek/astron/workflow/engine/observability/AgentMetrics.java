@@ -1,25 +1,47 @@
 package com.iflytek.astron.workflow.engine.observability;
 
-import lombok.Data;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Agent 指标采集中心
- * 采集 20+ 指标，覆盖请求-推理-执行全链路
+ * 基于 Micrometer MeterRegistry 实现，支持 Prometheus 抓取
+ *
+ * <p>采集 20+ 指标，覆盖请求-推理-执行全链路
  */
 @Slf4j
 public class AgentMetrics {
 
-    private static final Map<String, MetricCounter> COUNTERS = new ConcurrentHashMap<>();
-    private static final Map<String, MetricGauge> GAUGES = new ConcurrentHashMap<>();
-    private static final Map<String, AtomicLong> VALUES = new ConcurrentHashMap<>();
+    private static MeterRegistry meterRegistry;
+    private static final Map<String, Counter> COUNTERS = new ConcurrentHashMap<>();
+    private static final Map<String, Timer> TIMERS = new ConcurrentHashMap<>();
+    private static final Map<String, AtomicLong> GAUGES = new ConcurrentHashMap<>();
 
     /**
-     * 指标类型
+     * 设置 MeterRegistry 实例
+     */
+    public static void setMeterRegistry(MeterRegistry meterRegistry) {
+        AgentMetrics.meterRegistry = meterRegistry;
+        log.info("MeterRegistry set: {}", meterRegistry);
+    }
+
+    /**
+     * 获取 MeterRegistry
+     */
+    public static MeterRegistry getMeterRegistry() {
+        return meterRegistry;
+    }
+
+    /**
+     * 指标名称常量
      */
     public enum MetricType {
         // LLM 相关
@@ -47,11 +69,7 @@ public class AgentMetrics {
         // 工作流相关
         WORKFLOW_NODES_EXECUTED("workflow.nodes.executed", "工作流已执行节点数"),
         WORKFLOW_EDGE_COUNT("workflow.edge.count", "工作流边数"),
-        WORKFLOW_EXECUTION_TIME_MS("workflow.execution.time.ms", "工作流执行时间(ms)"),
-
-        // 系统相关
-        SYSTEM_CPU_USAGE("system.cpu.usage", "CPU 使用率"),
-        SYSTEM_MEMORY_USAGE("system.memory.usage", "内存使用率");
+        WORKFLOW_EXECUTION_TIME_MS("workflow.execution.time.ms", "工作流执行时间(ms)");
 
         private final String name;
         private final String description;
@@ -71,57 +89,6 @@ public class AgentMetrics {
     }
 
     /**
-     * 指标计数器
-     */
-    @Data
-    public static class MetricCounter {
-        private final String name;
-        private final String description;
-        private final AtomicLong count = new AtomicLong(0);
-        private final AtomicLong total = new AtomicLong(0);
-
-        public void increment() {
-            count.incrementAndGet();
-            total.incrementAndGet();
-        }
-
-        public void increment(long delta) {
-            count.addAndGet(delta);
-            total.addAndGet(delta);
-        }
-
-        public long getCount() {
-            return count.get();
-        }
-
-        public long getTotal() {
-            return total.get();
-        }
-
-        public void reset() {
-            count.set(0);
-        }
-    }
-
-    /**
-     * 指标 Gauge
-     */
-    @Data
-    public static class MetricGauge {
-        private final String name;
-        private final String description;
-        private final AtomicLong value = new AtomicLong(0);
-
-        public void set(long val) {
-            value.set(val);
-        }
-
-        public long get() {
-            return value.get();
-        }
-    }
-
-    /**
      * 记录 LLM 调用
      */
     public static void recordLlmCall(String modelId, int promptLength, int promptTokens,
@@ -130,16 +97,52 @@ public class AgentMetrics {
         log.debug("[Metrics] LLM call: traceId={}, model={}, promptTokens={}, respTokens={}, latency={}ms",
                 traceId, modelId, promptTokens, responseTokens, latencyMs);
 
+        if (meterRegistry == null) {
+            log.warn("MeterRegistry not set, skipping metrics recording");
+            return;
+        }
+
         // 记录各项指标
-        record(MetricType.LLM_PROMPT_LENGTH, promptLength);
-        record(MetricType.LLM_PROMPT_TOKENS, promptTokens);
-        record(MetricType.LLM_RESPONSE_TOKENS, responseTokens);
-        record(MetricType.LLM_TOTAL_TOKENS, promptTokens + responseTokens);
-        record(MetricType.LLM_LATENCY_MS, latencyMs);
-        increment(MetricType.LLM_REQUESTS_TOTAL);
+        Timer llmTimer = getOrCreateTimer(MetricType.LLM_LATENCY_MS.getName(), "LLM调用延迟");
+        llmTimer.record(latencyMs, TimeUnit.MILLISECONDS);
+
+        Counter.builder(MetricType.LLM_PROMPT_LENGTH.getName())
+                .description("LLM Prompt 长度")
+                .tag("model", modelId)
+                .register(meterRegistry)
+                .increment(promptLength);
+
+        Counter.builder(MetricType.LLM_PROMPT_TOKENS.getName())
+                .description("LLM Prompt Token 数")
+                .tag("model", modelId)
+                .register(meterRegistry)
+                .increment(promptTokens);
+
+        Counter.builder(MetricType.LLM_RESPONSE_TOKENS.getName())
+                .description("LLM 响应 Token 数")
+                .tag("model", modelId)
+                .register(meterRegistry)
+                .increment(responseTokens);
+
+        Counter.builder(MetricType.LLM_TOTAL_TOKENS.getName())
+                .description("LLM 总 Token 消耗")
+                .tag("model", modelId)
+                .register(meterRegistry)
+                .increment(promptTokens + responseTokens);
+
+        Counter.builder(MetricType.LLM_REQUESTS_TOTAL.getName())
+                .description("LLM 请求总数")
+                .tag("model", modelId)
+                .tag("success", String.valueOf(success))
+                .register(meterRegistry)
+                .increment();
 
         if (!success) {
-            increment(MetricType.LLM_ERRORS_TOTAL);
+            Counter.builder(MetricType.LLM_ERRORS_TOTAL.getName())
+                    .description("LLM 错误总数")
+                    .tag("model", modelId)
+                    .register(meterRegistry)
+                    .increment();
         }
     }
 
@@ -151,11 +154,24 @@ public class AgentMetrics {
         log.debug("[Metrics] Plugin call: traceId={}, plugin={}, latency={}ms, success={}",
                 traceId, pluginName, latencyMs, success);
 
-        increment(MetricType.PLUGIN_INVOKE_TOTAL);
-        record(MetricType.PLUGIN_INVOKE_LATENCY_MS, latencyMs);
+        if (meterRegistry == null) return;
+
+        Timer pluginTimer = getOrCreateTimer(MetricType.PLUGIN_INVOKE_LATENCY_MS.getName(), "插件调用延迟");
+        pluginTimer.record(latencyMs, TimeUnit.MILLISECONDS);
+
+        Counter.builder(MetricType.PLUGIN_INVOKE_TOTAL.getName())
+                .description("插件调用总数")
+                .tag("plugin", pluginName)
+                .tag("success", String.valueOf(success))
+                .register(meterRegistry)
+                .increment();
 
         if (!success) {
-            increment(MetricType.PLUGIN_ERRORS_TOTAL);
+            Counter.builder(MetricType.PLUGIN_ERRORS_TOTAL.getName())
+                    .description("插件错误总数")
+                    .tag("plugin", pluginName)
+                    .register(meterRegistry)
+                    .increment();
         }
     }
 
@@ -167,9 +183,20 @@ public class AgentMetrics {
         log.debug("[Metrics] Agent step: traceId={}, step={}, tool={}, success={}",
                 traceId, stepNumber, toolName, success);
 
-        increment(MetricType.AGENT_STEPS_TOTAL);
+        if (meterRegistry == null) return;
+
+        Counter.builder(MetricType.AGENT_STEPS_TOTAL.getName())
+                .description("Agent 执行步骤总数")
+                .tag("success", String.valueOf(success))
+                .register(meterRegistry)
+                .increment();
+
         if (toolName != null) {
-            increment(MetricType.AGENT_TOOL_CALLS_TOTAL);
+            Counter.builder(MetricType.AGENT_TOOL_CALLS_TOTAL.getName())
+                    .description("Agent 工具调用总数")
+                    .tag("tool", toolName)
+                    .register(meterRegistry)
+                    .increment();
         }
     }
 
@@ -177,9 +204,18 @@ public class AgentMetrics {
      * 记录 Agent 迭代
      */
     public static void recordAgentIteration(int iteration, boolean hasToolCall) {
-        increment(MetricType.AGENT_ITERATIONS_TOTAL);
+        if (meterRegistry == null) return;
+
+        Counter.builder(MetricType.AGENT_ITERATIONS_TOTAL.getName())
+                .description("Agent 迭代次数")
+                .register(meterRegistry)
+                .increment();
+
         if (hasToolCall) {
-            increment(MetricType.AGENT_TOOL_CALLS_TOTAL);
+            Counter.builder(MetricType.AGENT_TOOL_CALLS_TOTAL.getName())
+                    .description("Agent 工具调用总数")
+                    .register(meterRegistry)
+                    .increment();
         }
     }
 
@@ -187,108 +223,122 @@ public class AgentMetrics {
      * 记录 Agent 记忆大小
      */
     public static void recordMemorySize(int memorySize) {
-        set(MetricType.AGENT_MEMORY_SIZE, memorySize);
+        if (meterRegistry == null) return;
+
+        Gauge.builder(MetricType.AGENT_MEMORY_SIZE.getName(), () -> memorySize)
+                .description("Agent 记忆大小")
+                .register(meterRegistry);
     }
 
     /**
      * 记录上下文长度
      */
     public static void recordContextLength(int contextLength) {
-        set(MetricType.AGENT_CONTEXT_LENGTH, contextLength);
+        if (meterRegistry == null) return;
+
+        Gauge.builder(MetricType.AGENT_CONTEXT_LENGTH.getName(), () -> contextLength)
+                .description("Agent 上下文长度")
+                .register(meterRegistry);
     }
 
     /**
      * 记录 Agent 执行时间
      */
     public static void recordAgentExecutionTime(long executionTimeMs) {
-        set(MetricType.AGENT_EXECUTION_TIME_MS, executionTimeMs);
+        if (meterRegistry == null) return;
+
+        Counter.builder(MetricType.AGENT_EXECUTION_TIME_MS.getName())
+                .description("Agent 执行总时间(ms)")
+                .register(meterRegistry)
+                .increment(executionTimeMs);
     }
 
     /**
      * 记录工作流节点执行
      */
     public static void recordWorkflowNodeExecution(String nodeType, long latencyMs) {
-        increment(MetricType.WORKFLOW_NODES_EXECUTED);
-        log.debug("[Metrics] Workflow node: type={}, latency={}ms", nodeType, latencyMs);
+        if (meterRegistry == null) return;
+
+        Counter.builder(MetricType.WORKFLOW_NODES_EXECUTED.getName())
+                .description("工作流已执行节点数")
+                .tag("nodeType", nodeType)
+                .register(meterRegistry)
+                .increment();
     }
 
     /**
      * 递增计数器
      */
     public static void increment(MetricType metric) {
-        getOrCreateCounter(metric.getName(), metric.getDescription()).increment();
+        if (meterRegistry == null) return;
+
+        Counter.builder(metric.getName())
+                .description(metric.getDescription())
+                .register(meterRegistry)
+                .increment();
     }
 
     /**
      * 记录值
      */
     public static void record(MetricType metric, long value) {
-        String key = metric.getName();
-        VALUES.computeIfAbsent(key, k -> new AtomicLong(0)).set(value);
-        log.debug("[Metrics] Recorded: {}={}", key, value);
+        if (meterRegistry == null) return;
+
+        Counter.builder(metric.getName())
+                .description(metric.getDescription())
+                .register(meterRegistry)
+                .increment(value);
     }
 
     /**
      * 设置 Gauge 值
      */
     public static void set(MetricType metric, long value) {
-        getOrCreateGauge(metric.getName(), metric.getDescription()).set(value);
+        if (meterRegistry == null) return;
+
+        AtomicLong gaugeValue = GAUGES.computeIfAbsent(metric.getName(), k -> new AtomicLong(0));
+        gaugeValue.set(value);
+
+        Gauge.builder(metric.getName(), gaugeValue, AtomicLong::get)
+                .description(metric.getDescription())
+                .register(meterRegistry);
     }
 
     /**
      * 获取计数器
      */
-    public static MetricCounter getCounter(MetricType metric) {
-        return COUNTERS.get(metric.getName());
-    }
+    public static double getCounter(MetricType metric) {
+        if (meterRegistry == null) return 0;
 
-    /**
-     * 获取所有指标快照
-     */
-    public static Map<String, Object> snapshot() {
-        Map<String, Object> snapshot = new ConcurrentHashMap<>();
-
-        // 添加计数器
-        for (Map.Entry<String, MetricCounter> entry : COUNTERS.entrySet()) {
-            MetricCounter counter = entry.getValue();
-            snapshot.put(entry.getKey() + ".count", counter.getCount());
-            snapshot.put(entry.getKey() + ".total", counter.getTotal());
-        }
-
-        // 添加 Gauge
-        for (Map.Entry<String, MetricGauge> entry : GAUGES.entrySet()) {
-            snapshot.put(entry.getKey(), entry.getValue().get());
-        }
-
-        // 添加最新值
-        for (Map.Entry<String, AtomicLong> entry : VALUES.entrySet()) {
-            snapshot.put(entry.getKey(), entry.getValue().get());
-        }
-
-        return snapshot;
+        return meterRegistry.find(metric.getName()).counter() != null
+                ? meterRegistry.find(metric.getName()).counter().count()
+                : 0;
     }
 
     /**
      * 获取追踪ID关联的指标
      */
     public static Map<String, Object> getMetricsForCurrentTrace() {
+        Map<String, Object> metrics = new ConcurrentHashMap<>();
         String traceId = TraceContext.getTraceId();
-        Map<String, Object> metrics = snapshot();
         metrics.put("traceId", traceId);
+
+        if (meterRegistry != null) {
+            meterRegistry.getMetrics().forEach((name, meter) -> {
+                if (meter instanceof Counter) {
+                    metrics.put(name, ((Counter) meter).count());
+                }
+            });
+        }
+
         return metrics;
     }
 
-    private static MetricCounter getOrCreateCounter(String name, String description) {
-        return COUNTERS.computeIfAbsent(name, k -> {
-            log.debug("Created counter: {}", name);
-            return new MetricCounter(name, description);
-        });
-    }
-
-    private static MetricGauge getOrCreateGauge(String name, String description) {
-        return GAUGES.computeIfAbsent(name, k -> {
-            log.debug("Created gauge: {}", name);
-            return new MetricGauge(name, description);
+    private static Timer getOrCreateTimer(String name, String description) {
+        return TIMERS.computeIfAbsent(name, k -> {
+            return Timer.builder(name)
+                    .description(description)
+                    .register(meterRegistry);
         });
     }
 
@@ -297,8 +347,8 @@ public class AgentMetrics {
      */
     public static void clear() {
         COUNTERS.clear();
+        TIMERS.clear();
         GAUGES.clear();
-        VALUES.clear();
         log.info("All metrics cleared");
     }
 }

@@ -121,7 +121,7 @@ workflow:
     node-timeout: 300
     # 工作流执行超时时间（秒）
     workflow-timeout: 600
-  
+
   # 外部服务配置
   services:
     # 模型服务地址
@@ -131,6 +131,18 @@ workflow:
     aitools-url: ${AITOOLS_URL:http://localhost:7880}
     # Python Workflow 服务地址（用于对比参考）
     python-workflow-url: ${PYTHON_WORKFLOW_URL:http://core-workflow-python:7880}
+
+# OpenTelemetry 配置
+otel:
+  trace:
+    enabled: ${OTEL_TRACE_ENABLED:true}
+  metrics:
+    enabled: ${OTEL_METRICS_ENABLED:true}
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+  service:
+    name: ${OTEL_SERVICE_NAME:agentflow-workflow}
 
 
 # S3(MinIO) basic configuration
