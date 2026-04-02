@@ -8,6 +8,8 @@ import com.iflytek.astron.workflow.engine.domain.NodeState;
 import com.iflytek.astron.workflow.engine.domain.chain.Node;
 import com.iflytek.astron.workflow.engine.engine.util.VariableTemplateRender;
 import com.iflytek.astron.workflow.engine.integration.model.ModelServiceClient;
+import com.iflytek.astron.workflow.engine.integration.model.bo.LlmReqBo;
+import com.iflytek.astron.workflow.engine.integration.model.bo.LlmResVo;
 import com.iflytek.astron.workflow.engine.integration.plugins.PluginServiceClient;
 import com.iflytek.astron.workflow.engine.node.AbstractNodeExecutor;
 import com.iflytek.astron.workflow.engine.node.impl.agent.impl.DefaultMemory;
@@ -15,6 +17,9 @@ import com.iflytek.astron.workflow.engine.node.impl.agent.impl.DefaultPlanner;
 import com.iflytek.astron.workflow.engine.node.impl.agent.impl.DefaultReAct;
 import com.iflytek.astron.workflow.engine.node.impl.agent.impl.DefaultReflect;
 import com.iflytek.astron.workflow.engine.node.impl.agent.model.Task;
+import com.iflytek.astron.workflow.engine.observability.AgentMetrics;
+import com.iflytek.astron.workflow.engine.observability.AgentTracer;
+import com.iflytek.astron.workflow.engine.observability.TraceContext;
 import com.iflytek.astron.workflow.engine.util.FlowUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,23 +107,58 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
         Node node = nodeState.node();
         Map<String, Object> nodeParam = node.getData().getNodeParam();
 
-        log.info("Starting Agent node execution: nodeId={}, maxIterations={}",
-                node.getId(), getMaxIterations(nodeParam));
+        // 创建追踪上下文
+        TraceContext.create();
+        String traceId = TraceContext.getTraceId();
 
-        // 判断使用新架构还是旧架构
-        boolean useNewArchitecture = getBoolean(nodeParam, "useNewArchitecture", false);
+        long startTime = System.currentTimeMillis();
+        log.info("Starting Agent node execution: nodeId={}, maxIterations={}, traceId={}",
+                node.getId(), getMaxIterations(nodeParam), traceId);
 
-        try {
-            if (useNewArchitecture) {
-                // 使用新架构：Planner + ReAct + Reflect + Memory
-                return executeWithNewArchitecture(nodeState, inputs, nodeParam);
-            } else {
-                // 使用旧架构：ReActLoop
-                return executeWithReActLoop(nodeState, inputs, nodeParam);
+        // 启动追踪 Span
+        try (TraceContext.Span span = AgentTracer.startAgentSpan(
+                node.getId(),
+                node.getData().getNodeMeta().getAliasName())) {
+
+            // 判断使用新架构还是旧架构
+            boolean useNewArchitecture = getBoolean(nodeParam, "useNewArchitecture", false);
+
+            NodeRunResult result;
+            try {
+                if (useNewArchitecture) {
+                    // 使用新架构：Planner + ReAct + Reflect + Memory
+                    result = executeWithNewArchitecture(nodeState, inputs, nodeParam);
+                } else {
+                    // 使用旧架构：ReActLoop
+                    result = executeWithReActLoop(nodeState, inputs, nodeParam);
+                }
+            } catch (Exception e) {
+                log.error("Agent node execution failed: nodeId={}", node.getId(), e);
+                result = buildErrorResult(nodeState, inputs, e);
             }
-        } catch (Exception e) {
-            log.error("Agent node execution failed: nodeId={}", node.getId(), e);
-            return buildErrorResult(nodeState, inputs, e);
+
+            // 记录执行时间
+            long executionTime = System.currentTimeMillis() - startTime;
+            AgentMetrics.recordAgentExecutionTime(executionTime);
+
+            // 添加追踪信息到结果
+            if (result.getOutputs() == null) {
+                result.setOutputs(new HashMap<>());
+            }
+            result.getOutputs().put("_traceId", traceId);
+            result.getOutputs().put("_executionTimeMs", executionTime);
+
+            // 获取完整指标快照
+            Map<String, Object> metrics = AgentMetrics.snapshot();
+            result.getOutputs().put("_metrics", metrics);
+
+            log.info("Agent node execution completed: nodeId={}, traceId={}, executionTime={}ms",
+                    node.getId(), traceId, executionTime);
+
+            return result;
+        } finally {
+            // 清理追踪上下文
+            TraceContext.clear();
         }
     }
 
@@ -174,39 +214,105 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
 
     /**
      * 调用 LLM（供新架构使用）
+     * 集成全链路追踪和指标采集
      */
     private String callLLM(Node node, String prompt, Map<String, Object> nodeParam,
                           DefaultReAct.ExecutionContext context) {
-        try {
-            com.iflytek.astron.workflow.engine.integration.model.bo.LlmReqBo req =
-                    new com.iflytek.astron.workflow.engine.integration.model.bo.LlmReqBo();
-            req.setNodeId(node.getId());
-            req.setUserMsg(prompt);
-            req.setModel(getString(nodeParam, "modelId", "qwen-plus"));
-            req.setTemperature(getDouble(nodeParam, "temperature", 0.7));
+        String modelId = getString(nodeParam, "modelId", "qwen-plus");
+        int promptLength = prompt != null ? prompt.length() : 0;
+        long startTime = System.currentTimeMillis();
 
-            com.iflytek.astron.workflow.engine.integration.model.bo.LlmResVo res =
-                    modelClient.chatCompletion(req, null);
+        // 启动 LLM 追踪 Span
+        try (TraceContext.Span span = AgentTracer.startLlmSpan(modelId, "reasoning")) {
+            try {
+                LlmReqBo req = new LlmReqBo();
+                req.setNodeId(node.getId());
+                req.setUserMsg(prompt);
+                req.setModel(modelId);
+                req.setTemperature(getDouble(nodeParam, "temperature", 0.7));
 
-            return res.content();
-        } catch (Exception e) {
-            log.error("LLM call failed: {}", e.getMessage(), e);
-            throw new RuntimeException("LLM call failed: " + e.getMessage(), e);
+                LlmResVo res = modelClient.chatCompletion(req, null);
+                String response = res.content();
+
+                // 计算延迟和 Token（估算）
+                long latencyMs = System.currentTimeMillis() - startTime;
+                int promptTokens = estimateTokens(promptLength);
+                int responseTokens = estimateTokens(response != null ? response.length() : 0);
+
+                // 记录 LLM 指标
+                AgentTracer.recordLlmCall(
+                        modelId, "reasoning",
+                        promptLength, promptTokens,
+                        responseTokens, latencyMs, true
+                );
+
+                span.setAttribute("llm.success", true);
+                span.setAttribute("llm.latencyMs", latencyMs);
+                span.setAttribute("llm.promptTokens", promptTokens);
+                span.setAttribute("llm.responseTokens", responseTokens);
+
+                return response;
+
+            } catch (Exception e) {
+                long latencyMs = System.currentTimeMillis() - startTime;
+
+                // 记录失败指标
+                AgentTracer.recordLlmCall(
+                        modelId, "reasoning",
+                        promptLength, estimateTokens(promptLength),
+                        0, latencyMs, false
+                );
+
+                span.setAttribute("llm.success", false);
+                span.setAttribute("llm.error", e.getMessage());
+
+                log.error("LLM call failed: {}", e.getMessage(), e);
+                throw new RuntimeException("LLM call failed: " + e.getMessage(), e);
+            }
         }
     }
 
     /**
      * 调用工具（供新架构使用）
+     * 集成全链路追踪和指标采集
      */
     private Map<String, Object> callTool(String toolName, Object args) {
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> toolInputs = (Map<String, Object>) args;
-            if (toolInputs == null) {
-                toolInputs = new HashMap<>();
+        long startTime = System.currentTimeMillis();
+
+        // 启动工具追踪 Span
+        try (TraceContext.Span span = AgentTracer.startToolSpan(toolName, "plugin")) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> toolInputs = (Map<String, Object>) args;
+                if (toolInputs == null) {
+                    toolInputs = new HashMap<>();
+                }
+
+                Map<String, Object> result = pluginClient.toolCall(currentNodeState, toolInputs);
+
+                // 记录工具调用指标
+                long latencyMs = System.currentTimeMillis() - startTime;
+                AgentTracer.recordToolCall(toolName, "plugin", latencyMs, true);
+
+                span.setAttribute("tool.success", true);
+                span.setAttribute("tool.latencyMs", latencyMs);
+
+                return result;
+
+            } catch (Exception e) {
+                long latencyMs = System.currentTimeMillis() - startTime;
+
+                // 记录失败指标
+                AgentTracer.recordToolCall(toolName, "plugin", latencyMs, false);
+
+                span.setAttribute("tool.success", false);
+                span.setAttribute("tool.error", e.getMessage());
+
+                log.error("Tool call failed: {} - {}", toolName, e.getMessage(), e);
+                throw new RuntimeException("Tool call failed: " + e.getMessage(), e);
             }
-            return pluginClient.toolCall(currentNodeState, toolInputs);
-        } catch (Exception e) {
+        }
+    }
             log.error("Tool call failed: {} - {}", toolName, e.getMessage(), e);
             throw new RuntimeException("Tool call failed: " + e.getMessage(), e);
         }
@@ -463,5 +569,25 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
             return result;
         }
         return new ArrayList<>();
+    }
+
+    /**
+     * 估算 Token 数量（简单估算：中文按字符数，英文按空格分词）
+     * 实际项目中应使用 tiktoken 或类似库
+     */
+    private int estimateTokens(int charCount) {
+        // 简单估算：中文字符约 1.5 Token，英文约 0.25 Token
+        // 这里简化为 charCount / 4
+        return Math.max(1, charCount / 4);
+    }
+
+    /**
+     * 估算字符串的 Token 数量
+     */
+    private int estimateTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return estimateTokens(text.length());
     }
 }
