@@ -31,11 +31,32 @@ public class ReActLoop {
     }
 
     /**
-     * 执行一步 ReAct 循环
-     *
-     * @return 是否继续循环
+     * 执行完整的 ReAct 循环
+     * 内部自动管理循环，直到达到终止条件
      */
-    public boolean step() {
+    public void execute() {
+        log.info("Starting ReAct loop: maxIterations={}", context.getMaxIterations());
+
+        while (!context.isTerminal() && context.getCurrentIteration() < context.getMaxIterations()) {
+            step();
+        }
+
+        // 检查是否达到最大迭代
+        if (context.getCurrentIteration() >= context.getMaxIterations() && !context.isTerminal()) {
+            log.warn("ReAct loop reached max iterations: {}", context.getMaxIterations());
+            context.setTerminated("max_iterations");
+            context.getOutputs().put("error", "达到最大迭代次数，任务未完成");
+            context.getOutputs().put("partial_result", context.getMemory());
+        }
+
+        log.info("ReAct loop finished: iterations={}, reason={}",
+                context.getCurrentIteration(), context.getTerminationReason());
+    }
+
+    /**
+     * 执行一步 ReAct 循环
+     */
+    public void step() {
         context.incrementIteration();
 
         try {
@@ -72,12 +93,12 @@ public class ReActLoop {
             context.addMessage(MsgTypeEnum.ASSISTANT, action.getRawText() != null ? action.getRawText() : llmOutput.content());
 
             // 3. Act - 根据动作类型执行
-            return executeAction(action);
+            executeAction(action);
 
         } catch (Exception e) {
             log.error("ReAct loop error at iteration {}: {}", context.getCurrentIteration(), e.getMessage(), e);
             context.addMemory("error", e.getMessage(), null);
-            return handleError(e);
+            handleError(e);
         }
     }
 
@@ -197,7 +218,7 @@ public class ReActLoop {
     /**
      * 执行动作
      */
-    private boolean executeAction(ActionParser.Action action) {
+    private void executeAction(ActionParser.Action action) {
         if (action.isFinalAnswer()) {
             // 任务完成
             context.setTerminated("completed");
@@ -210,30 +231,31 @@ public class ReActLoop {
                     context.getNodeState().node().getData().getNodeMeta().getAliasName(),
                     null
             );
-
-            return false;
+            return;
         }
 
         if (action.isToolCall()) {
-            // 工具调用
-            return executeToolCall(action);
+            // 工具调用成功，重置无工具调用计数
+            context.resetNoToolIterationCount();
+            executeToolCall(action);
+            return;
         }
 
         if (action.isError()) {
             // 错误处理
             context.setTerminated("error: " + action.getErrorMessage());
-            return false;
+            return;
         }
 
-        // CONTINUE - 继续推理
+        // CONTINUE - 继续推理，检查是否无进展
         context.addMemory("reasoning", action.getContent(), null);
-        return true;
+        context.checkNoProgress();
     }
 
     /**
      * 执行工具调用
      */
-    private boolean executeToolCall(ActionParser.Action action) {
+    private void executeToolCall(ActionParser.Action action) {
         try {
             log.info("Executing tool: {} with args: {}", action.getToolName(), action.getToolArguments());
 
@@ -248,6 +270,10 @@ public class ReActLoop {
 
             // 通过 PluginServiceClient 调用工具
             Map<String, Object> toolResult = pluginClient.toolCall(context.getNodeState(), toolInputs);
+
+            // 工具调用成功
+            context.incrementToolSuccessCount();
+            context.setLastToolName(action.getToolName());
 
             // 保存工具结果到记忆
             context.addMemory("tool_call", String.format("%s(%s) -> %s",
@@ -269,31 +295,31 @@ public class ReActLoop {
                     null
             );
 
-            return true;
-
         } catch (Exception e) {
             log.error("Tool call failed: {} - {}", action.getToolName(), e.getMessage(), e);
+
+            // 工具调用失败
+            context.incrementToolFailureCount();
             context.addMemory("error", String.format("Tool %s failed: %s", action.getToolName(), e.getMessage()), null);
 
-            // 工具调用失败，记录错误但继续循环
+            // 将错误信息注入上下文，让 LLM 知道工具调用失败了
             context.getInputs().put(action.getToolName() + "_error", e.getMessage());
-            return true;
+
+            // 检查工具连续失败次数
+            if (context.getToolFailureCount() >= context.getMaxToolConsecutiveFailures()) {
+                log.warn("Tool {} failed {} times consecutively, terminating",
+                        action.getToolName(), context.getToolFailureCount());
+                context.setTerminated("tool_consecutive_failures");
+            }
         }
     }
 
     /**
      * 处理错误
      */
-    private boolean handleError(Exception e) {
-        if (context.getCurrentIteration() >= context.getMaxIterations()) {
-            context.setTerminated("max_iterations_reached");
-            context.getOutputs().put("error", "达到最大迭代次数，任务未完成");
-            context.getOutputs().put("partial_result", context.getMemory());
-            return false;
-        }
-
-        // 继续循环
-        return true;
+    private void handleError(Exception e) {
+        // 错误已被记录到记忆，循环将继续执行
+        // 如果需要强制终止，可以在子类中重写此方法
     }
 
     /**

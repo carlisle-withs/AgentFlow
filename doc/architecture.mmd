@@ -1,0 +1,190 @@
+# AgentFlow 系统架构图
+
+## 整体架构
+
+```mermaid
+graph TB
+    subgraph Frontend["前端表达层 (React + TypeScript)"]
+        WF["工作流画布<br/>(ReactFlow)"]
+        NP["节点配置面板<br/>(Ant Design)"]
+        MON["执行监控<br/>(SSE实时推送)"]
+        LOG["日志查看<br/>(Monaco Editor)"]
+    end
+
+    subgraph Console["控制台中枢层 (Console Hub - Java / 8081)"]
+        AUTH["用户鉴权<br/>(Spring Security)"]
+        MODEL["模型管理<br/>(Spring AI)"]
+        META["流程元数据<br/>(MyBatis-Plus)"]
+        DISPATCH["执行调度<br/>(REST/SSE)"]
+    end
+
+    subgraph Workflow["Java 工作流引擎 (7880)"]
+        subgraph Executor["核心执行器 (NodeExecutor)"]
+            START["Start<br/>Executor"]
+            LLM["LLM<br/>Executor"]
+            PLUGIN["Plugin<br/>Executor"]
+            IFELSE["If-Else<br/>Executor"]
+        end
+        
+        VP["VariablePool<br/>变量池"]
+        DSL["WorkflowDSL<br/>DSL解析"]
+    end
+
+    subgraph Infra["基础设施层"]
+        MYSQL["MySQL"]
+        REDIS["Redis"]
+        MINIO["MinIO"]
+        NGINX["Nginx"]
+    end
+
+    Frontend -->|"HTTP/SSE"| Console
+    Console -->|"REST"| Workflow
+    Workflow --> Infra
+
+    style Frontend fill:#e6e6fa,stroke:#667eea
+    style Console fill:#e8f8f5,stroke:#11998e
+    style Workflow fill:#fff5e6,stroke:#fc4a1a
+    style Infra fill:#e8ecf0,stroke:#45637a
+```
+
+## 工作流执行流程
+
+```mermaid
+flowchart LR
+    subgraph Request["用户请求"]
+        USER["用户发起请求"]
+    end
+
+    subgraph Hub["Console Hub (8081)"]
+        AUTH1["鉴权验证"]
+        LOAD["加载DSL"]
+        VERIFY["验证配置"]
+        FORWARD["转发请求"]
+        SSE["SSE推送"]
+        RESP["返回结果"]
+    end
+
+    subgraph Engine["Workflow Engine (7880)"]
+        PARSE["DSL解析"]
+        BUILD["链路构建"]
+        LOOP["环路检测"]
+        EXEC["节点执行"]
+        CALLBACK["回调通知"]
+    end
+
+    USER --> AUTH1
+    AUTH1 --> LOAD --> VERIFY --> FORWARD --> SSE --> RESP
+    FORWARD -->|"HTTP POST"| PARSE
+    PARSE --> BUILD --> LOOP
+    LOOP -->|"无环"| EXEC
+    EXEC --> CALLBACK
+    CALLBACK -->|"SSE Stream"| SSE
+
+    style Request fill:#e6f0ff,stroke:#4facfe
+    style Hub fill:#e8f8f5,stroke:#11998e
+    style Engine fill:#fff5e6,stroke:#fc4a1a
+```
+
+## 节点执行流程
+
+```mermaid
+flowchart TB
+    subgraph Input["输入处理"]
+        RESOLVE["resolveInputs()<br/>解析模板变量"]
+        TEMPLATE["{{node-llm::002.output}}"]
+    end
+
+    subgraph Execute["节点执行"]
+        EXEC_NODE["executeNode()<br/>执行业务逻辑"]
+        LLM_CALL["LLM调用/插件执行"]
+    end
+
+    subgraph Output["输出处理"]
+        STORE["storeOutputs()<br/>保存到变量池"]
+        OUTPUT["node-id.output-name"]
+    end
+
+    subgraph Callback["回调通知"]
+        CB["callback.onNodeEnd()<br/>通知工作流"]
+    end
+
+    RESOLVE --> TEMPLATE --> EXEC_NODE
+    EXEC_NODE --> LLM_CALL --> STORE
+    STORE --> OUTPUT --> CB
+
+    style Input fill:#f0f4ff,stroke:#667eea
+    style Execute fill:#fff5e6,stroke:#fc4a1a
+    style Output fill:#e8f8f5,stroke:#11998e
+    style Callback fill:#e8ecf0,stroke:#45637a
+```
+
+## VariablePool 变量池
+
+```mermaid
+graph LR
+    subgraph Pool["VariablePool"]
+        subgraph Node1["spark-llm::002"]
+            O1["output: 'AI回答'"]
+            R1["reason: '思考过程'"]
+        end
+        
+        subgraph Node2["node-plugin::003"]
+            R2["result: {...}"]
+        end
+    end
+
+    TEMPLATE["模板变量"] -->|"{{spark-llm::002.output}}"| O1
+
+    style Pool fill:#f0f4ff,stroke:#667eea
+    style Node1 fill:#e8f8f5,stroke:#11998e
+    style Node2 fill:#fff5e6,stroke:#fc4a1a
+```
+
+## 节点类型体系
+
+```mermaid
+graph TB
+    subgraph StartEnd["起始/结束"]
+        START["START"]
+        END["END"]
+    end
+
+    subgraph LLM["LLM节点"]
+        SPARK_LLM["spark-llm"]
+    end
+
+    subgraph Knowledge["知识库节点"]
+        KB["KNOWLEDGE_BASE"]
+        KB_PRO["KNOWLEDGE_PRO_BASE"]
+        QA["QUESTION_ANSWER"]
+    end
+
+    subgraph Logic["逻辑控制"]
+        IF["IF_ELSE"]
+        CODE["CODE"]
+        DECISION["DECISION_MAKING"]
+    end
+
+    subgraph Iteration["迭代节点"]
+        ITER["ITERATION"]
+        ITER_START["ITERATION_START"]
+        ITER_END["ITERATION_END"]
+    end
+
+    subgraph Plugin["插件节点"]
+        PLUGIN["PLUGIN"]
+    end
+
+    subgraph External["外部集成"]
+        DB["DATABASE"]
+        RPA["RPA"]
+    end
+
+    style StartEnd fill:#e8f8f5,stroke:#11998e
+    style LLM fill:#f0f4ff,stroke:#667eea
+    style Knowledge fill:#fff5e6,stroke:#f7b733
+    style Logic fill:#ffe0cc,stroke:#fc4a1a
+    style Iteration fill:#f5e6ff,stroke:#9b59b6
+    style Plugin fill:#fff0f5,stroke:#e91e63
+    style External fill:#f0fff0,stroke:#27ae60
+```

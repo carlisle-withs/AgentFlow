@@ -82,25 +82,11 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
             // 1. 初始化 Agent 上下文
             AgentContext context = initContext(nodeState, inputs, nodeParam);
 
-            // 2. 创建 ReAct 循环引擎
+            // 2. 创建 ReAct 循环引擎并执行
             ReActLoop reactLoop = new ReActLoop(modelClient, pluginClient, context);
+            reactLoop.execute();  // 内部自动管理循环
 
-            // 3. 执行 ReAct 循环直到终止
-            while (!context.isTerminal()) {
-                boolean continueLoop = reactLoop.step();
-                if (!continueLoop) {
-                    break;
-                }
-
-                // 安全检查：防止无限循环
-                if (context.getCurrentIteration() >= context.getMaxIterations()) {
-                    log.warn("Agent node reached max iterations: {}", context.getMaxIterations());
-                    context.setTerminated("max_iterations");
-                    break;
-                }
-            }
-
-            // 4. 构建并返回结果
+            // 3. 构建并返回结果
             return buildResult(context, inputs);
 
         } catch (Exception e) {

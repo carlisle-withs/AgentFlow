@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" width="900" height="580">
+  <defs>
+    <linearGradient id="vpGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:0.2" />
+    </linearGradient>
+    <filter id="vpShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#333">VariablePool - 节点间数据传递机制</text>
+
+  <!-- VariablePool Container -->
+  <g transform="translate(30, 55)" filter="url(#vpShadow)">
+    <rect x="0" y="0" width="380" height="280" rx="15" fill="url(#vpGrad1)" stroke="#667eea" stroke-width="3"/>
+    <text x="190" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#667eea">VariablePool (变量池)</text>
+    <text x="190" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">Map&lt;String, Map&lt;String, Object&gt;&gt;</text>
+
+    <!-- Node 1: LLM -->
+    <rect x="20" y="70" width="340" height="60" rx="10" fill="white" stroke="#667eea" stroke-width="1.5"/>
+    <text x="190" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">spark-llm::002</text>
+    <text x="50" y="115" font-family="Courier New, monospace" font-size="10" fill="#11998e">"output"</text>
+    <text x="120" y="115" font-family="Arial, sans-serif" font-size="10" fill="#666">→</text>
+    <rect x="140" y="100" width="200" height="25" rx="5" fill="#f0fff0" stroke="#11998e"/>
+    <text x="240" y="117" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">"这是 AI 的回答内容"</text>
+
+    <!-- Node 2: Plugin -->
+    <rect x="20" y="140" width="340" height="60" rx="10" fill="white" stroke="#667eea" stroke-width="1.5"/>
+    <text x="190" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">node-plugin::003</text>
+    <text x="50" y="185" font-family="Courier New, monospace" font-size="10" fill="#11998e">"result"</text>
+    <text x="120" y="185" font-family="Arial, sans-serif" font-size="10" fill="#666">→</text>
+    <rect x="140" y="170" width="200" height="25" rx="5" fill="#f0fff0" stroke="#11998e"/>
+    <text x="240" y="187" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">{"voice_url": "..."}</text>
+
+    <!-- Node 3: Knowledge -->
+    <rect x="20" y="210" width="340" height="55" rx="10" fill="white" stroke="#667eea" stroke-width="1.5"/>
+    <text x="190" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">knowledge-base::004</text>
+    <text x="50" y="255" font-family="Courier New, monospace" font-size="10" fill="#11998e">"chunks"</text>
+    <text x="120" y="255" font-family="Arial, sans-serif" font-size="10" fill="#666">→</text>
+    <rect x="140" y="240" width="200" height="20" rx="5" fill="#f0fff0" stroke="#11998e"/>
+    <text x="240" y="254" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">[...]</text>
+  </g>
+
+  <!-- Template Resolution -->
+  <g transform="translate(450, 55)" filter="url(#vpShadow)">
+    <rect x="0" y="0" width="420" height="280" rx="15" fill="white" stroke="#fc4a1a" stroke-width="3"/>
+    <text x="210" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fc4a1a">模板变量解析</text>
+    <text x="210" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">VariableTemplateRender.render()</text>
+
+    <!-- Input Template -->
+    <rect x="20" y="65" width="380" height="60" rx="8" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+    <text x="210" y="88" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#333">输入模板:</text>
+    <text x="210" y="110" text-anchor="middle" font-family="Courier New, monospace" font-size="11" fill="#667eea">"用户说: {{node-start::001.user_input}}"</text>
+
+    <!-- Arrow -->
+    <line x1="210" y1="130" x2="210" y2="155" stroke="#fc4a1a" stroke-width="2"/>
+    <polygon points="210,160 206,150 214,150" fill="#fc4a1a"/>
+
+    <!-- Resolution Process -->
+    <rect x="20" y="165" width="380" height="40" rx="8" fill="#f0f4ff" stroke="#667eea" stroke-width="1.5"/>
+    <text x="210" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#333">解析步骤:</text>
+    <text x="210" y="205" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">1. 提取 {{node-start::001.user_input}}</text>
+  </g>
+
+  <!-- Key Format -->
+  <g transform="translate(30, 360)" filter="url(#vpShadow)">
+    <rect x="0" y="0" width="840" height="200" rx="15" fill="white" stroke="#11998e" stroke-width="3"/>
+    <text x="420" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#11998e">变量引用格式</text>
+
+    <!-- Format 1 -->
+    <g transform="translate(40, 50)">
+      <rect x="0" y="0" width="350" height="65" rx="10" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="175" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">基本格式</text>
+      <text x="175" y="48" text-anchor="middle" font-family="Courier New, monospace" font-size="12" fill="#667eea">{{node-id.output-name}}</text>
+      <text x="175" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">示例: {{spark-llm::002.output}}</text>
+    </g>
+
+    <!-- Format 2 -->
+    <g transform="translate(420, 50)">
+      <rect x="0" y="0" width="380" height="65" rx="10" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="190" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">嵌套属性访问</text>
+      <text x="190" y="48" text-anchor="middle" font-family="Courier New, monospace" font-size="12" fill="#667eea">{{node-id.data.voice_url}}</text>
+      <text x="190" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">访问嵌套对象属性</text>
+    </g>
+
+    <!-- Format 3 -->
+    <g transform="translate(40, 130)">
+      <rect x="0" y="0" width="350" height="55" rx="10" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="175" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">数组索引访问</text>
+      <text x="175" y="42" text-anchor="middle" font-family="Courier New, monospace" font-size="11" fill="#667eea">{{node-id.items[0].name}}</text>
+    </g>
+
+    <!-- Key Components -->
+    <g transform="translate(420, 130)">
+      <rect x="0" y="0" width="380" height="55" rx="10" fill="#f0f4ff" stroke="#667eea" stroke-width="2"/>
+      <text x="190" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">VariablePool 内部结构</text>
+      <text x="190" y="42" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#667eea">key = "spark-llm::002.output"</text>
+      <text x="190" y="55" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#999">value = "AI回答内容"</text>
+    </g>
+  </g>
+</svg>

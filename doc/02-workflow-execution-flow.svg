@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 920" width="950" height="920">
+  <defs>
+    <linearGradient id="wfGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4facfe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:1" />
+    </linearGradient>
+    <filter id="wfShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="475" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#333">工作流执行流程图</text>
+
+  <!-- Step 1: User Request -->
+  <g transform="translate(375, 50)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="200" height="50" rx="25" fill="url(#wfGrad1)"/>
+    <text x="100" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">用户发起请求</text>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="475" y1="105" x2="475" y2="135" stroke="#4facfe" stroke-width="2.5"/>
+  <polygon points="475,140 470,130 480,130" fill="#4facfe"/>
+
+  <!-- Step 2: Console Hub -->
+  <g transform="translate(200, 145)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="550" height="95" rx="12" fill="white" stroke="#4facfe" stroke-width="2.5"/>
+    <text x="275" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#4facfe">Console Hub (8081)</text>
+    
+    <g transform="translate(20, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">鉴权</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">验证</text>
+    </g>
+    
+    <line x1="75" y1="62" x2="95" y2="62" stroke="#4facfe" stroke-width="1.5"/>
+    <polygon points="95,62 90,58 90,66" fill="#4facfe"/>
+    
+    <g transform="translate(100, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">加载</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">DSL</text>
+    </g>
+    
+    <line x1="155" y1="62" x2="175" y2="62" stroke="#4facfe" stroke-width="1.5"/>
+    <polygon points="175,62 170,58 170,66" fill="#4facfe"/>
+    
+    <g transform="translate(180, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">验证</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">配置</text>
+    </g>
+    
+    <line x1="235" y1="62" x2="255" y2="62" stroke="#4facfe" stroke-width="1.5"/>
+    <polygon points="255,62 250,58 250,66" fill="#4facfe"/>
+    
+    <g transform="translate(260, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">转发</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">请求</text>
+    </g>
+    
+    <line x1="315" y1="62" x2="335" y2="62" stroke="#4facfe" stroke-width="1.5"/>
+    <polygon points="335,62 330,58 330,66" fill="#4facfe"/>
+    
+    <g transform="translate(340, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">SSE</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">推送</text>
+    </g>
+    
+    <line x1="395" y1="62" x2="415" y2="62" stroke="#4facfe" stroke-width="1.5"/>
+    <polygon points="415,62 410,58 410,66" fill="#4facfe"/>
+    
+    <g transform="translate(420, 40)">
+      <rect x="0" y="0" width="50" height="45" rx="6" fill="#e8f8ff" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#333">返回</text>
+      <text x="25" y="33" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">结果</text>
+    </g>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="475" y1="245" x2="475" y2="275" stroke="#667eea" stroke-width="2.5"/>
+  <polygon points="475,280 470,270 480,270" fill="#667eea"/>
+
+  <!-- Step 3: DSL Parse -->
+  <g transform="translate(175, 285)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="600" height="110" rx="12" fill="white" stroke="#667eea" stroke-width="2.5"/>
+    <text x="300" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#667eea">Core Workflow Engine (7880) - DSL 解析</text>
+    
+    <g transform="translate(30, 45)">
+      <rect x="0" y="0" width="100" height="50" rx="6" fill="#f0f4ff" stroke="#667eea" stroke-width="1.5"/>
+      <text x="50" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">WorkflowDSL</text>
+      <text x="50" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">JSON 解析</text>
+    </g>
+    
+    <line x1="135" y1="70" x2="160" y2="70" stroke="#667eea" stroke-width="2"/>
+    <polygon points="160,70 155,66 155,74" fill="#667eea"/>
+    
+    <g transform="translate(165, 45)">
+      <rect x="0" y="0" width="100" height="50" rx="6" fill="#f0f4ff" stroke="#667eea" stroke-width="1.5"/>
+      <text x="50" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">Node Map</text>
+      <text x="50" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">节点注册</text>
+    </g>
+    
+    <line x1="270" y1="70" x2="295" y2="70" stroke="#667eea" stroke-width="2"/>
+    <polygon points="295,70 290,66 290,74" fill="#667eea"/>
+    
+    <g transform="translate(300, 45)">
+      <rect x="0" y="0" width="100" height="50" rx="6" fill="#f0f4ff" stroke="#667eea" stroke-width="1.5"/>
+      <text x="50" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">Edge Map</text>
+      <text x="50" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">链路绑定</text>
+    </g>
+    
+    <line x1="405" y1="70" x2="430" y2="70" stroke="#667eea" stroke-width="2"/>
+    <polygon points="430,70 425,66 425,74" fill="#667eea"/>
+    
+    <g transform="translate(435, 45)">
+      <rect x="0" y="0" width="100" height="50" rx="6" fill="#ffe0cc" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="50" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#fc4a1a">环路检测</text>
+      <text x="50" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">Kahn 算法</text>
+    </g>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="475" y1="400" x2="475" y2="430" stroke="#11998e" stroke-width="2.5"/>
+  <polygon points="475,435 470,425 480,425" fill="#11998e"/>
+
+  <!-- Step 4: Execution Chain -->
+  <g transform="translate(150, 440)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="650" height="120" rx="12" fill="white" stroke="#11998e" stroke-width="2.5"/>
+    <text x="325" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#11998e">执行链路构建 (DAG)</text>
+    
+    <!-- Nodes -->
+    <g transform="translate(30, 50)">
+      <rect x="0" y="0" width="80" height="55" rx="8" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">START</text>
+      <text x="40" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">起始节点</text>
+    </g>
+    
+    <line x1="115" y1="77" x2="145" y2="77" stroke="#11998e" stroke-width="2"/>
+    <polygon points="145,77 140,73 140,81" fill="#11998e"/>
+    
+    <g transform="translate(150, 50)">
+      <rect x="0" y="0" width="80" height="55" rx="8" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">LLM</text>
+      <text x="40" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">大模型调用</text>
+    </g>
+    
+    <line x1="235" y1="77" x2="265" y2="77" stroke="#11998e" stroke-width="2"/>
+    <polygon points="265,77 260,73 260,81" fill="#11998e"/>
+    
+    <g transform="translate(270, 50)">
+      <rect x="0" y="0" width="80" height="55" rx="8" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">If-Else</text>
+      <text x="40" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">条件分支</text>
+    </g>
+    
+    <!-- True Branch -->
+    <line x1="355" y1="60" x2="385" y2="40" stroke="#11998e" stroke-width="1.5"/>
+    <text x="365" y="45" font-family="Arial, sans-serif" font-size="9" fill="#11998e">True</text>
+    <polygon points="385,35 380,45 390,45" fill="#11998e"/>
+    
+    <g transform="translate(390, 20)">
+      <rect x="0" y="0" width="80" height="40" rx="6" fill="#e8f8f5" stroke="#11998e" stroke-width="1.5"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">Branch A</text>
+    </g>
+    
+    <!-- False Branch -->
+    <line x1="355" y1="95" x2="385" y2="115" stroke="#fc4a1a" stroke-width="1.5"/>
+    <text x="365" y="110" font-family="Arial, sans-serif" font-size="9" fill="#fc4a1a">False</text>
+    <polygon points="385,120 380,110 390,110" fill="#fc4a1a"/>
+    
+    <g transform="translate(390, 100)">
+      <rect x="0" y="0" width="80" height="40" rx="6" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">Branch B</text>
+    </g>
+    
+    <!-- Merge -->
+    <line x1="475" y1="40" x2="505" y2="60" stroke="#11998e" stroke-width="1.5"/>
+    <polygon points="505,60 500,55 507,65" fill="#11998e"/>
+    <line x1="475" y1="120" x2="505" y2="100" stroke="#11998e" stroke-width="1.5"/>
+    <polygon points="505,100 500,95 507,105" fill="#11998e"/>
+    
+    <g transform="translate(510, 50)">
+      <rect x="0" y="0" width="80" height="55" rx="8" fill="#e8f8f5" stroke="#11998e" stroke-width="2"/>
+      <text x="40" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">END</text>
+      <text x="40" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">结束节点</text>
+    </g>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="475" y1="565" x2="475" y2="595" stroke="#fc4a1a" stroke-width="2.5"/>
+  <polygon points="475,600 470,590 480,590" fill="#fc4a1a"/>
+
+  <!-- Step 5: Node Execution -->
+  <g transform="translate(125, 600)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="700" height="130" rx="12" fill="white" stroke="#fc4a1a" stroke-width="2.5"/>
+    <text x="350" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#fc4a1a">节点执行 (NodeExecutor)</text>
+    
+    <g transform="translate(20, 50)">
+      <rect x="0" y="0" width="140" height="65" rx="8" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">resolveInputs()</text>
+      <text x="70" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">解析模板变量</text>
+      <text x="70" y="54" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#667eea">{{node-llm::002.output}}</text>
+    </g>
+    
+    <line x1="165" y1="82" x2="195" y2="82" stroke="#fc4a1a" stroke-width="2"/>
+    <polygon points="195,82 190,78 190,86" fill="#fc4a1a"/>
+    
+    <g transform="translate(200, 50)">
+      <rect x="0" y="0" width="140" height="65" rx="8" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">executeNode()</text>
+      <text x="70" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">执行节点逻辑</text>
+      <text x="70" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#999">LLM / Plugin / ...</text>
+    </g>
+    
+    <line x1="345" y1="82" x2="375" y2="82" stroke="#fc4a1a" stroke-width="2"/>
+    <polygon points="375,82 370,78 370,86" fill="#fc4a1a"/>
+    
+    <g transform="translate(380, 50)">
+      <rect x="0" y="0" width="140" height="65" rx="8" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">storeOutputs()</text>
+      <text x="70" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">保存到变量池</text>
+      <text x="70" y="54" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#667eea">node-id.output</text>
+    </g>
+    
+    <line x1="525" y1="82" x2="555" y2="82" stroke="#fc4a1a" stroke-width="2"/>
+    <polygon points="555,82 550,78 550,86" fill="#fc4a1a"/>
+    
+    <g transform="translate(560, 50)">
+      <rect x="0" y="0" width="120" height="65" rx="8" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="60" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#333">callback</text>
+      <text x="60" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">回调通知</text>
+      <text x="60" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#999">onNodeEnd()</text>
+    </g>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="475" y1="735" x2="475" y2="765" stroke="#45637a" stroke-width="2.5"/>
+  <polygon points="475,770 470,760 480,760" fill="#45637a"/>
+
+  <!-- Step 6: SSE Push -->
+  <g transform="translate(200, 770)" filter="url(#wfShadow)">
+    <rect x="0" y="0" width="550" height="80" rx="12" fill="white" stroke="#45637a" stroke-width="2.5"/>
+    <text x="275" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#45637a">SSE 实时推送 (WorkflowMsgCallback)</text>
+    
+    <g transform="translate(30, 45)">
+      <rect x="0" y="0" width="90" height="28" rx="14" fill="#e8ecf0" stroke="#45637a" stroke-width="1"/>
+      <text x="45" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">onNodeStart</text>
+    </g>
+    
+    <text x="125" y="62" font-family="Arial, sans-serif" font-size="12" fill="#999">→</text>
+    
+    <g transform="translate(140, 45)">
+      <rect x="0" y="0" width="90" height="28" rx="14" fill="#e8ecf0" stroke="#45637a" stroke-width="1"/>
+      <text x="45" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">onNodeProcess</text>
+    </g>
+    
+    <text x="235" y="62" font-family="Arial, sans-serif" font-size="12" fill="#999">→</text>
+    
+    <g transform="translate(250, 45)">
+      <rect x="0" y="0" width="90" height="28" rx="14" fill="#e8ecf0" stroke="#45637a" stroke-width="1"/>
+      <text x="45" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">onNodeEnd</text>
+    </g>
+    
+    <text x="345" y="62" font-family="Arial, sans-serif" font-size="12" fill="#999">→</text>
+    
+    <g transform="translate(360, 45)">
+      <rect x="0" y="0" width="90" height="28" rx="14" fill="#e8ecf0" stroke="#45637a" stroke-width="1"/>
+      <text x="45" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#333">onWorkflowEnd</text>
+    </g>
+    
+    <text x="455" y="62" font-family="Arial, sans-serif" font-size="12" fill="#999">→</text>
+    
+    <g transform="translate(470, 45)">
+      <rect x="0" y="0" width="50" height="28" rx="14" fill="#4facfe" stroke="#4facfe" stroke-width="1"/>
+      <text x="25" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">完成</text>
+    </g>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(30, 870)">
+    <text x="0" y="15" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#666">图例:</text>
+    <rect x="60" y="5" width="12" height="12" fill="#e8f8f5" stroke="#11998e"/>
+    <text x="78" y="15" font-family="Arial, sans-serif" font-size="10" fill="#666">成功分支</text>
+    <rect x="150" y="5" width="12" height="12" fill="#fff5e6" stroke="#fc4a1a"/>
+    <text x="168" y="15" font-family="Arial, sans-serif" font-size="10" fill="#666">失败分支</text>
+    <rect x="240" y="5" width="12" height="12" fill="#ffe0cc" stroke="#fc4a1a"/>
+    <text x="258" y="15" font-family="Arial, sans-serif" font-size="10" fill="#666">异常处理</text>
+  </g>
+</svg>

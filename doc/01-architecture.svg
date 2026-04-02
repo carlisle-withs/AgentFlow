@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720" width="900" height="720">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:0.15" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:0.15" />
+    </linearGradient>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fc4a1a;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#f7b733;stop-opacity:0.15" />
+    </linearGradient>
+    <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#45637a;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#5a7a9a;stop-opacity:0.15" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- 标题 -->
+  <text x="450" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#333">AgentFlow 系统架构图</text>
+
+  <!-- Layer 1: Frontend -->
+  <g transform="translate(40, 55)" filter="url(#shadow)">
+    <rect x="0" y="0" width="820" height="130" rx="12" fill="url(#grad1)" stroke="#667eea" stroke-width="2"/>
+    <text x="410" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#667eea">前端表达层 (React + TypeScript)</text>
+    
+    <g transform="translate(25, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#667eea" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">工作流画布</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(ReactFlow)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">拖拽式节点编排</text>
+    </g>
+
+    <g transform="translate(220, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#667eea" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">节点配置面板</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(Ant Design 5)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">参数可视化配置</text>
+    </g>
+
+    <g transform="translate(415, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#667eea" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">执行监控</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(SSE 实时推送)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">边跑边看结果</text>
+    </g>
+
+    <g transform="translate(610, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#667eea" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">日志查看</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(Monaco Editor)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">代码编辑器</text>
+    </g>
+  </g>
+
+  <!-- Arrow 1 -->
+  <g transform="translate(450, 190)">
+    <line x1="0" y1="0" x2="0" y2="30" stroke="#667eea" stroke-width="2.5"/>
+    <polygon points="0,35 -5,25 5,25" fill="#667eea"/>
+  </g>
+
+  <!-- Layer 2: Console Hub -->
+  <g transform="translate(40, 230)" filter="url(#shadow)">
+    <rect x="0" y="0" width="820" height="130" rx="12" fill="url(#grad2)" stroke="#11998e" stroke-width="2"/>
+    <text x="410" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#11998e">控制台中枢层 (Console Hub - Java / 8081)</text>
+    
+    <g transform="translate(25, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#11998e" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">用户鉴权</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(Spring Security)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">OAuth2 / JWT</text>
+    </g>
+
+    <g transform="translate(220, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#11998e" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">模型管理</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(Spring AI 1.1)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">DeepSeek / OpenAI / 通义</text>
+    </g>
+
+    <g transform="translate(415, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#11998e" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">流程元数据</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(MyBatis-Plus)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">工作流版本管理</text>
+    </g>
+
+    <g transform="translate(610, 45)">
+      <rect x="0" y="0" width="175" height="70" rx="8" fill="white" stroke="#11998e" stroke-width="1.5"/>
+      <text x="87" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#333">执行调度</text>
+      <text x="87" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#666">(REST / SSE)</text>
+      <text x="87" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#999">请求转发 / 响应推送</text>
+    </g>
+  </g>
+
+  <!-- Arrow 2 -->
+  <g transform="translate(450, 365)">
+    <line x1="0" y1="0" x2="0" y2="30" stroke="#11998e" stroke-width="2.5"/>
+    <polygon points="0,35 -5,25 5,25" fill="#11998e"/>
+  </g>
+
+  <!-- Layer 3: Workflow Engine -->
+  <g transform="translate(40, 400)" filter="url(#shadow)">
+    <rect x="0" y="0" width="820" height="160" rx="12" fill="url(#grad3)" stroke="#fc4a1a" stroke-width="2"/>
+    <text x="410" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fc4a1a">Java 工作流引擎 (Workflow Engine / 7880)</text>
+    
+    <!-- 核心执行器 -->
+    <g transform="translate(25, 45)">
+      <rect x="0" y="0" width="370" height="100" rx="8" fill="white" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="185" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">核心执行器 (NodeExecutor)</text>
+      
+      <g transform="translate(20, 35)">
+        <rect x="0" y="0" width="60" height="50" rx="6" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1"/>
+        <text x="30" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#333">Start</text>
+        <text x="30" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">Executor</text>
+      </g>
+      
+      <g transform="translate(95, 35)">
+        <rect x="0" y="0" width="60" height="50" rx="6" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1"/>
+        <text x="30" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#333">LLM</text>
+        <text x="30" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">Executor</text>
+      </g>
+      
+      <g transform="translate(170, 35)">
+        <rect x="0" y="0" width="60" height="50" rx="6" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1"/>
+        <text x="30" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#333">Plugin</text>
+        <text x="30" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">Executor</text>
+      </g>
+      
+      <g transform="translate(245, 35)">
+        <rect x="0" y="0" width="60" height="50" rx="6" fill="#fff5e6" stroke="#fc4a1a" stroke-width="1"/>
+        <text x="30" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#333">If-Else</text>
+        <text x="30" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">Executor</text>
+      </g>
+      
+      <g transform="translate(320, 35)">
+        <rect x="0" y="0" width="30" height="50" rx="6" fill="#ffe0cc" stroke="#fc4a1a" stroke-width="1"/>
+        <text x="15" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">...</text>
+      </g>
+    </g>
+
+    <!-- VariablePool -->
+    <g transform="translate(410, 45)">
+      <rect x="0" y="0" width="180" height="100" rx="8" fill="white" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="90" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">VariablePool</text>
+      <text x="90" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">节点间数据传递</text>
+      <text x="90" y="55" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#667eea">{"output": "..."}</text>
+      <text x="90" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">模板变量解析</text>
+      <text x="90" y="85" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#667eea">{{node-id.output}}</text>
+    </g>
+
+    <!-- WorkflowDSL -->
+    <g transform="translate(605, 45)">
+      <rect x="0" y="0" width="180" height="100" rx="8" fill="white" stroke="#fc4a1a" stroke-width="1.5"/>
+      <text x="90" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333">WorkflowDSL</text>
+      <text x="90" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">DSL 解析构建</text>
+      <text x="90" y="55" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">链路绑定</text>
+      <text x="90" y="75" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fc4a1a" font-weight="bold">环路检测</text>
+      <text x="90" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#666">(Kahn 算法)</text>
+    </g>
+  </g>
+
+  <!-- Arrow 3 -->
+  <g transform="translate(450, 565)">
+    <line x1="0" y1="0" x2="0" y2="30" stroke="#45637a" stroke-width="2.5"/>
+    <polygon points="0,35 -5,25 5,25" fill="#45637a"/>
+  </g>
+
+  <!-- Layer 4: Infrastructure -->
+  <g transform="translate(40, 600)" filter="url(#shadow)">
+    <rect x="0" y="0" width="820" height="100" rx="12" fill="url(#grad4)" stroke="#45637a" stroke-width="2"/>
+    <text x="410" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#45637a">基础设施层 (Infrastructure)</text>
+    
+    <g transform="translate(50, 50)">
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="white" stroke="#45637a" stroke-width="1.5"/>
+      <text x="75" y="26" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">MySQL</text>
+    </g>
+
+    <g transform="translate(220, 50)">
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="white" stroke="#45637a" stroke-width="1.5"/>
+      <text x="75" y="26" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">Redis</text>
+    </g>
+
+    <g transform="translate(390, 50)">
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="white" stroke="#45637a" stroke-width="1.5"/>
+      <text x="75" y="26" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">MinIO</text>
+    </g>
+
+    <g transform="translate(560, 50)">
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="white" stroke="#45637a" stroke-width="1.5"/>
+      <text x="75" y="26" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#333">Nginx</text>
+    </g>
+  </g>
+</svg>

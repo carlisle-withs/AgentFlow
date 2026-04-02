@@ -101,6 +101,31 @@ public class AgentContext {
     private double temperature;
 
     /**
+     * 工具连续成功次数
+     */
+    private int toolSuccessCount;
+
+    /**
+     * 工具连续失败次数
+     */
+    private int toolFailureCount;
+
+    /**
+     * 最大工具连续失败次数（超过此值终止）
+     */
+    private int maxToolConsecutiveFailures = 3;
+
+    /**
+     * 最后执行的工具名称
+     */
+    private String lastToolName;
+
+    /**
+     * 连续无工具调用迭代次数
+     */
+    private int consecutiveNoToolIterations;
+
+    /**
      * 创建 AgentContext
      */
     public static AgentContext create(NodeState nodeState, Map<String, Object> inputs) {
@@ -117,6 +142,9 @@ public class AgentContext {
         context.maxIterations = 10;
         context.temperature = 0.7;
         context.enableThinking = false;
+        context.toolSuccessCount = 0;
+        context.toolFailureCount = 0;
+        context.consecutiveNoToolIterations = 0;
         return context;
     }
 
@@ -169,6 +197,70 @@ public class AgentContext {
     public void setTerminated(String reason) {
         this.terminal = true;
         this.terminationReason = reason;
+    }
+
+    /**
+     * 增加工具成功次数
+     */
+    public void incrementToolSuccessCount() {
+        this.toolSuccessCount++;
+        this.toolFailureCount = 0;  // 重置失败计数
+    }
+
+    /**
+     * 增加工具失败次数
+     */
+    public void incrementToolFailureCount() {
+        this.toolFailureCount++;
+        this.toolSuccessCount = 0;  // 重置成功计数
+    }
+
+    /**
+     * 获取工具连续失败次数
+     */
+    public int getToolFailureCount() {
+        return this.toolFailureCount;
+    }
+
+    /**
+     * 获取最大工具连续失败次数
+     */
+    public int getMaxToolConsecutiveFailures() {
+        return this.maxToolConsecutiveFailures;
+    }
+
+    /**
+     * 设置最后执行的工具名称
+     */
+    public void setLastToolName(String toolName) {
+        this.lastToolName = toolName;
+    }
+
+    /**
+     * 获取最后执行的工具名称
+     */
+    public String getLastToolName() {
+        return this.lastToolName;
+    }
+
+    /**
+     * 检查是否应该终止（无进展检测）
+     * 如果连续多次迭代没有工具调用，认为没有进展
+     */
+    public void checkNoProgress() {
+        this.consecutiveNoToolIterations++;
+        if (this.consecutiveNoToolIterations >= 5) {
+            log.warn("No tool calls for {} consecutive iterations, terminating", this.consecutiveNoToolIterations);
+            this.terminal = true;
+            this.terminationReason = "no_progress";
+        }
+    }
+
+    /**
+     * 重置无工具调用计数（当有工具调用时）
+     */
+    public void resetNoToolIterationCount() {
+        this.consecutiveNoToolIterations = 0;
     }
 
     /**
