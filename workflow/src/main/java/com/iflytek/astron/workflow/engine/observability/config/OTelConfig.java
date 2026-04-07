@@ -15,8 +15,10 @@ import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
-import io.opentelemetry.semconv.ResourceAttributes;
+import io.opentelemetry.api.common.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
+import com.iflytek.astron.workflow.engine.observability.AgentMetrics;
+import com.iflytek.astron.workflow.engine.observability.TraceContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -61,8 +63,8 @@ public class OTelConfig {
         // 创建资源
         Resource resource = Resource.getDefault()
                 .merge(Resource.create(Attributes.of(
-                        ResourceAttributes.SERVICE_NAME, serviceName,
-                        ResourceAttributes.SERVICE_VERSION, "1.0.0"
+                        AttributeKey.stringKey("service.name"), serviceName,
+                        AttributeKey.stringKey("service.version"), "1.0.0"
                 )));
 
         // 创建 Span 导出器（支持 OTLP）
@@ -74,8 +76,9 @@ public class OTelConfig {
             spanExporter = otlpExporter;
             log.info("OTLP trace exporter configured: endpoint={}", otlpEndpoint);
         } catch (Exception e) {
-            log.warn("Failed to create OTLP exporter, using noop: {}", e.getMessage());
-            spanExporter = SpanExporter.noop();
+            log.warn("Failed to create OTLP exporter, using default: {}", e.getMessage());
+            // 使用内置的 noop SpanExporter
+            spanExporter = io.opentelemetry.sdk.trace.export.SpanExporter.composite();
         }
 
         // 创建追踪提供者

@@ -75,8 +75,9 @@ public class ActionParser {
         // 3. 检查是否是工具调用
         Matcher toolMatcher = TOOL_CALL_PATTERN.matcher(llmOutput);
         if (toolMatcher.find()) {
+            String toolCallJson = null;
             try {
-                String toolCallJson = toolMatcher.group(1);
+                toolCallJson = toolMatcher.group(1);
                 JSONObject toolCallObj = JSON.parseObject(toolCallJson);
 
                 action.setType(ActionType.TOOL_CALL);
@@ -89,7 +90,7 @@ public class ActionParser {
 
                 return action;
             } catch (Exception e) {
-                log.error("Failed to parse tool call: {}", toolCallJson, e);
+                log.error("Failed to parse tool call: {}", toolCallJson != null ? toolCallJson : "null", e);
                 action.setType(ActionType.ERROR);
                 action.setErrorMessage("Failed to parse tool call: " + e.getMessage());
                 return action;

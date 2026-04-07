@@ -52,6 +52,8 @@ public class LlmReqBo {
 
     private Boolean modelEnabled;
 
+    private Double temperature;
+
     private Map<String, Object> extraParams;
 
     private List<LlmChatHistory.ChatItem> history;

@@ -324,9 +324,37 @@ public class AgentMetrics {
         metrics.put("traceId", traceId);
 
         if (meterRegistry != null) {
-            meterRegistry.getMetrics().forEach((name, meter) -> {
+            meterRegistry.getMeters().forEach(meter -> {
+                String name = meter.getId().getName();
                 if (meter instanceof Counter) {
                     metrics.put(name, ((Counter) meter).count());
+                }
+            });
+        }
+
+        return metrics;
+    }
+
+    /**
+     * 获取当前指标的快照
+     * 用于在节点执行完成后获取完整的指标数据
+     */
+    public static Map<String, Object> snapshot() {
+        Map<String, Object> metrics = new ConcurrentHashMap<>();
+        String traceId = TraceContext.getTraceId();
+        metrics.put("traceId", traceId);
+        metrics.put("timestamp", System.currentTimeMillis());
+
+        if (meterRegistry != null) {
+            // 获取所有计数器
+            meterRegistry.getMeters().forEach(meter -> {
+                String name = meter.getId().getName();
+                if (meter instanceof Counter) {
+                    metrics.put(name + "_count", ((Counter) meter).count());
+                } else if (meter instanceof Timer) {
+                    Timer timer = (Timer) meter;
+                    metrics.put(name + "_totalTime", timer.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+                    metrics.put(name + "_count", timer.count());
                 }
             });
         }

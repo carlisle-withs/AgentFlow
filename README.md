@@ -1,4 +1,4 @@
-# AgentFlow - 企业级 AI Agent 工作流编排平台
+# AgentFlow - AI Agent 工作流编排平台
 
 <div align="center">
 
@@ -11,7 +11,7 @@
 
 ## 项目简介
 
-**AgentFlow** 是一个企业级的 AI Agent 工作流编排平台，支持通过可视化方式编排大模型节点、工具节点和流程逻辑。类似于 Dify、Coze、n8n 的可视化流程编排平台。
+**AgentFlow** 是一个 AI Agent 工作流编排平台，支持通过可视化方式编排大模型节点、工具节点和流程逻辑。类似于 Dify、Coze、n8n 的可视化流程编排平台。
 
 ---
 

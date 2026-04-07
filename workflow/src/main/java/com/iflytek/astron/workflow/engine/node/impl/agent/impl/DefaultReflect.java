@@ -105,7 +105,7 @@ public class DefaultReflect implements Reflect {
 
     @Override
     public boolean detectLoop(List<ExecutionResult> recentSteps) {
-        return loopDetector.isLooping(recentSteps);
+        return loopDetector.isLoopingResults(recentSteps);
     }
 
     @Override
@@ -227,7 +227,7 @@ public class DefaultReflect implements Reflect {
         /**
          * 检测执行结果是否循环
          */
-        public boolean isLooping(List<ExecutionResult> recentSteps) {
+        public boolean isLoopingResults(List<ExecutionResult> recentSteps) {
             if (recentSteps.size() < threshold) {
                 return false;
             }

@@ -6,7 +6,7 @@ import com.iflytek.astron.workflow.engine.constants.NodeTypeEnum;
 import com.iflytek.astron.workflow.engine.domain.NodeRunResult;
 import com.iflytek.astron.workflow.engine.domain.NodeState;
 import com.iflytek.astron.workflow.engine.domain.chain.Node;
-import com.iflytek.astron.workflow.engine.engine.util.VariableTemplateRender;
+import com.iflytek.astron.workflow.engine.util.VariableTemplateRender;
 import com.iflytek.astron.workflow.engine.integration.model.ModelServiceClient;
 import com.iflytek.astron.workflow.engine.integration.model.bo.LlmReqBo;
 import com.iflytek.astron.workflow.engine.integration.model.bo.LlmResVo;
@@ -116,7 +116,7 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
                 node.getId(), getMaxIterations(nodeParam), traceId);
 
         // 启动追踪 Span
-        try (TraceContext.Span span = AgentTracer.startAgentSpan(
+        try (TraceContext.SpanWrapper span = AgentTracer.startAgentSpan(
                 node.getId(),
                 node.getData().getNodeMeta().getAliasName())) {
 
@@ -223,7 +223,7 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
         long startTime = System.currentTimeMillis();
 
         // 启动 LLM 追踪 Span
-        try (TraceContext.Span span = AgentTracer.startLlmSpan(modelId, "reasoning")) {
+        try (TraceContext.SpanWrapper span = AgentTracer.startLlmSpan(modelId, "reasoning")) {
             try {
                 LlmReqBo req = new LlmReqBo();
                 req.setNodeId(node.getId());
@@ -280,7 +280,7 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
         long startTime = System.currentTimeMillis();
 
         // 启动工具追踪 Span
-        try (TraceContext.Span span = AgentTracer.startToolSpan(toolName, "plugin")) {
+        try (TraceContext.SpanWrapper span = AgentTracer.startToolSpan(toolName, "plugin")) {
             try {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> toolInputs = (Map<String, Object>) args;
@@ -311,10 +311,6 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
                 log.error("Tool call failed: {} - {}", toolName, e.getMessage(), e);
                 throw new RuntimeException("Tool call failed: " + e.getMessage(), e);
             }
-        }
-    }
-            log.error("Tool call failed: {} - {}", toolName, e.getMessage(), e);
-            throw new RuntimeException("Tool call failed: " + e.getMessage(), e);
         }
     }
 
@@ -459,8 +455,8 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
                 errorOutputs,
                 nodeState.node().getId(),
                 nodeState.node().getData().getNodeMeta().getAliasName(),
+                500,
                 "AGENT_EXECUTION_ERROR",
-                "error",
                 false
         );
 
