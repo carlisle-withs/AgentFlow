@@ -1,0 +1,12 @@
+apiVersion: 2
+
+name: 'AgentFlow Dashboard'
+labels:
+  grafana_dashboard: '1'
+  application: 'agentflow'
+
+config:
+  time:
+    from: now-1h
+    to: now
+  refresh: 10s

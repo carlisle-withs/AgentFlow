@@ -3,7 +3,6 @@ services:
   # Infrastructure Services
   # ============================================================================
 
-  # MySQL Database
   mysql:
     image: docker.m.daocloud.io/library/mysql:8.4
     container_name: agentflow-mysql
@@ -15,9 +14,7 @@ services:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      # Mount MySQL configuration
       - ./mysql/my.cnf:/etc/mysql/conf.d/charset.cnf:ro
-      # Mount initialization scripts
       - ./mysql:/docker-entrypoint-initdb.d
     networks:
       - agentflow-network
@@ -28,7 +25,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # Redis Cache
   redis:
     image: docker.m.daocloud.io/library/redis:7
     container_name: agentflow-redis
@@ -43,7 +39,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # MinIO Object Storage
   minio:
     image: docker.m.daocloud.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
     container_name: agentflow-minio
@@ -69,7 +64,6 @@ services:
   # Application Services
   # ============================================================================
 
-  # Console Frontend
   console-frontend:
     build:
       context: ../../
@@ -77,9 +71,7 @@ services:
     container_name: agentflow-console-frontend
     environment:
       NGINX_PORT: 1881
-      # Configuration for runtime-config.js
       CONSOLE_API_URL: /console-api
-      # Adjust these if you have authentication set up
       CONSOLE_CASDOOR_URL: ""
       CONSOLE_CASDOOR_ID: ""
     ports:
@@ -91,36 +83,26 @@ services:
       - agentflow-network
     restart: always
 
-  # Console Backend (Hub)
   console-hub:
     build:
       context: ../../
       dockerfile: docker/agentflow/Dockerfile.backend
     container_name: agentflow-console-hub
     environment:
-      # Database
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DB: agentflow-console
       MYSQL_USER: root
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      
-      # MinIO
       OSS_ENDPOINT: http://minio:9000
       OSS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       OSS_ACCESS_KEY_SECRET: ${MINIO_ROOT_PASSWORD:-minioadmin}
       OSS_REMOTE_ENDPOINT: http://localhost:9000
       OSS_BUCKET_CONSOLE: console
-      
-      # Integration with Workflow
       WORKFLOW_CHAT_URL: http://core-workflow-java:7880/api/v1/workflow/chat/stream
       WORKFLOW_URL: http://core-workflow-java:7880
-      
-      # Other settings
       SERVER_PORT: 8080
     ports:
       - "8081:8080"
@@ -135,34 +117,27 @@ services:
       - agentflow-network
     restart: always
 
-  # Core Workflow Java
   core-workflow-java:
     build:
       context: ../../
       dockerfile: docker/agentflow/Dockerfile.workflow
     container_name: agentflow-core-workflow-java
     environment:
-      # Database
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DB: agentflow-workflow
       MYSQL_USER: root
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
-      
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      
-      # Integration with Console
       MODEL_SERVICE_URL: http://console-hub:8080
-      
-      # MinIO
       OSS_ENDPOINT: http://minio:9000
       OSS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       OSS_ACCESS_KEY_SECRET: ${MINIO_ROOT_PASSWORD:-minioadmin}
       OSS_REMOTE_ENDPOINT: http://localhost:9000
-      
       SERVER_PORT: 7880
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: agentflow-workflow
     ports:
       - "7880:7880"
     depends_on:
@@ -172,6 +147,94 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - agentflow-network
+    restart: always
+
+  # ============================================================================
+  # Observability Services
+  # ============================================================================
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.99.0
+    container_name: agentflow-otel-collector
+    volumes:
+      - ./otel/collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+      - "8889:8889"
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - agentflow-network
+    restart: always
+
+  tempo:
+    image: grafana/tempo:2.4.0
+    container_name: agentflow-tempo
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+      - "9095:9095"
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    networks:
+      - agentflow-network
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: agentflow-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - agentflow-network
+    restart: always
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: agentflow-loki
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - agentflow-network
+    restart: always
+
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: agentflow-grafana
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+    ports:
+      - "3002:3000"
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
     networks:
       - agentflow-network
     restart: always
@@ -184,3 +247,7 @@ volumes:
   mysql_data:
   redis_data:
   minio_data:
+  tempo_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

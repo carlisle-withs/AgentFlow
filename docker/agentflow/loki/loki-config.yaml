@@ -1,0 +1,31 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: localhost
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-04-01
+      store: tsdb
+      object_storage: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  retention_period: 30d

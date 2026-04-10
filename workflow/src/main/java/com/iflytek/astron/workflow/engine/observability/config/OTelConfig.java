@@ -1,5 +1,7 @@
 package com.iflytek.astron.workflow.engine.observability.config;
 
+import com.iflytek.astron.workflow.engine.observability.AgentMetrics;
+import com.iflytek.astron.workflow.engine.observability.tracing.AgentTracing;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.opentelemetry.api.OpenTelemetry;
@@ -12,28 +14,17 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import io.opentelemetry.api.common.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
-import com.iflytek.astron.workflow.engine.observability.AgentMetrics;
-import com.iflytek.astron.workflow.engine.observability.TraceContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * OpenTelemetry 配置类
- *
- * <p>配置内容：
- * <ul>
- *   <li>TracerProvider - 追踪提供者，支持 OTLP 导出</li>
- *   <li>MeterRegistry - 指标注册器，支持 Prometheus 抓取</li>
- *   <li>Tracer - AgentFlow 专用追踪器</li>
- * </ul>
- */
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @Configuration
 public class OTelConfig {
@@ -50,9 +41,18 @@ public class OTelConfig {
     @Value("${otel.metrics.enabled:true}")
     private boolean metricsEnabled;
 
-    /**
-     * 配置 OpenTelemetry SDK
-     */
+    @Value("${otel.trace.sample-rate:0.3}")
+    private double sampleRate;
+
+    @Value("${otel.trace.slow-threshold-ms:1000}")
+    private long slowThresholdMs;
+
+    @Value("${otel.trace.batch-size:512}")
+    private int batchSize;
+
+    @Value("${otel.trace.schedule-delay-ms:1000}")
+    private long scheduleDelayMs;
+
     @Bean
     public OpenTelemetry openTelemetry() {
         if (!traceEnabled) {
@@ -60,65 +60,67 @@ public class OTelConfig {
             return OpenTelemetry.noop();
         }
 
-        // 创建资源
         Resource resource = Resource.getDefault()
                 .merge(Resource.create(Attributes.of(
                         AttributeKey.stringKey("service.name"), serviceName,
-                        AttributeKey.stringKey("service.version"), "1.0.0"
+                        AttributeKey.stringKey("service.version"), "1.0.0",
+                        AttributeKey.stringKey("deployment.environment"),
+                        System.getProperty("spring.profiles.active", "default")
                 )));
 
-        // 创建 Span 导出器（支持 OTLP）
-        SpanExporter spanExporter;
-        try {
-            OtlpGrpcSpanExporter otlpExporter = OtlpGrpcSpanExporter.builder()
-                    .setEndpoint(otlpEndpoint)
-                    .build();
-            spanExporter = otlpExporter;
-            log.info("OTLP trace exporter configured: endpoint={}", otlpEndpoint);
-        } catch (Exception e) {
-            log.warn("Failed to create OTLP exporter, using default: {}", e.getMessage());
-            // 使用内置的 noop SpanExporter
-            spanExporter = io.opentelemetry.sdk.trace.export.SpanExporter.composite();
-        }
+        SpanExporter spanExporter = createSpanExporter();
 
-        // 创建追踪提供者
+        Sampler sampler = Sampler.parentBased(Sampler.traceIdRatioBased(sampleRate));
+
         SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+                .addSpanProcessor(BatchSpanProcessor.builder(spanExporter)
+                        .setMaxQueueSize(2048)
+                        .setScheduleDelay(scheduleDelayMs, TimeUnit.MILLISECONDS)
+                        .setMaxExportBatchSize(batchSize)
+                        .setExporterTimeout(30, TimeUnit.SECONDS)
+                        .build())
                 .setResource(resource)
-                .setSampler(Sampler.alwaysOn())
+                .setSampler(sampler)
                 .build();
 
-        // 创建 OpenTelemetry 实例
         OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder()
                 .setTracerProvider(tracerProvider)
                 .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
                 .build();
 
-        // 注册关闭钩子
-        Runtime.getRuntime().addShutdownHook(new Thread(tracerProvider::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down OpenTelemetry tracer provider...");
+            tracerProvider.close();
+        }));
 
-        log.info("OpenTelemetry initialized: serviceName={}, traceEnabled={}", serviceName, traceEnabled);
+        log.info("OpenTelemetry initialized: serviceName={}, traceEnabled={}, sampleRate={}, slowThresholdMs={}",
+                serviceName, traceEnabled, sampleRate, slowThresholdMs);
         return openTelemetry;
     }
 
-    /**
-     * 创建 AgentFlow 专用追踪器
-     */
+    private SpanExporter createSpanExporter() {
+        try {
+            OtlpGrpcSpanExporter otlpExporter = OtlpGrpcSpanExporter.builder()
+                    .setEndpoint(otlpEndpoint)
+                    .build();
+            log.info("OTLP trace exporter configured: endpoint={}", otlpEndpoint);
+            return otlpExporter;
+        } catch (Exception e) {
+            log.warn("Failed to create OTLP exporter, tracing will be disabled: {}", e.getMessage());
+            return SpanExporter.composite();
+        }
+    }
+
     @Bean
     public Tracer tracer(OpenTelemetry openTelemetry) {
         Tracer tracer = openTelemetry.getTracer("agentflow", "1.0.0");
         log.info("Tracer bean created: instrument=agentflow, version=1.0.0");
 
-        // 设置到 TraceContext
-        TraceContext.setTracer(tracer);
+        AgentTracing.setTracer(tracer);
 
         return tracer;
     }
 
-    /**
-     * 配置 Micrometer MeterRegistry
-     * 支持 Prometheus 抓取指标
-     */
     @Bean
     public MeterRegistryCustomizer<MeterRegistry> metricsCommonTags() {
         return registry -> {
@@ -128,14 +130,40 @@ public class OTelConfig {
             );
             registry.config().commonTags(commonTags);
 
-            // 设置到 AgentMetrics
             AgentMetrics.setMeterRegistry(registry);
 
             if (metricsEnabled) {
-                log.info("MeterRegistry configured with common tags: {}", commonTags);
+                log.info("MeterRegistry configured with common tags: {}, metrics enabled", commonTags);
             } else {
                 log.info("Metrics is disabled");
             }
         };
+    }
+
+    @Bean
+    public OTelValidator openTelemetryValidator(OpenTelemetry openTelemetry) {
+        return new OTelValidator(openTelemetry, traceEnabled);
+    }
+
+    @Slf4j
+    public static class OTelValidator {
+        public OTelValidator(OpenTelemetry openTelemetry, boolean traceEnabled) {
+            if (!traceEnabled) {
+                log.info("OpenTelemetry validation skipped: trace is disabled");
+                return;
+            }
+
+            try {
+                if (openTelemetry.getTracerProvider() != null) {
+                    log.info("OpenTelemetry validation passed: TracerProvider is available");
+                }
+                if (openTelemetry.getPropagators() != null) {
+                    log.info("OpenTelemetry validation passed: ContextPropagators is available");
+                }
+                log.info("OpenTelemetry initialized successfully");
+            } catch (Exception e) {
+                log.error("OpenTelemetry validation failed: {}", e.getMessage(), e);
+            }
+        }
     }
 }

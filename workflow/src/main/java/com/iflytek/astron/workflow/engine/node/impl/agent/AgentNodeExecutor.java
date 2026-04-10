@@ -7,6 +7,10 @@ import com.iflytek.astron.workflow.engine.domain.NodeRunResult;
 import com.iflytek.astron.workflow.engine.domain.NodeState;
 import com.iflytek.astron.workflow.engine.domain.chain.Node;
 import com.iflytek.astron.workflow.engine.util.VariableTemplateRender;
+import com.iflytek.astron.workflow.engine.integration.code.CodeExecutor;
+import com.iflytek.astron.workflow.engine.integration.code.CodeExecutionRequest;
+import com.iflytek.astron.workflow.engine.integration.code.CodeExecutionResult;
+import com.iflytek.astron.workflow.engine.integration.code.GraalJSCodeExecutor;
 import com.iflytek.astron.workflow.engine.integration.model.ModelServiceClient;
 import com.iflytek.astron.workflow.engine.integration.model.bo.LlmReqBo;
 import com.iflytek.astron.workflow.engine.integration.model.bo.LlmResVo;
@@ -85,6 +89,7 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
 
     private final ModelServiceClient modelClient;
     private final PluginServiceClient pluginClient;
+    private final CodeExecutor codeExecutor;
 
     /**
      * 当前执行的 NodeState（用于工具调用）
@@ -95,6 +100,9 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
     public AgentNodeExecutor(ModelServiceClient modelClient, PluginServiceClient pluginClient) {
         this.modelClient = modelClient;
         this.pluginClient = pluginClient;
+        // 初始化代码执行器（Level 1: GraalJS 内置引擎）
+        this.codeExecutor = new GraalJSCodeExecutor();
+        log.info("AgentNodeExecutor initialized with GraalJSCodeExecutor");
     }
 
     @Override
@@ -275,6 +283,12 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
     /**
      * 调用工具（供新架构使用）
      * 集成全链路追踪和指标采集
+     *
+     * <p>支持两种工具类型：
+     * <ul>
+     *   <li>code - 代码执行工具（GraalJS 内置引擎）</li>
+     *   <li>其他 - 插件工具（通过 pluginClient 调用）</li>
+     * </ul>
      */
     private Map<String, Object> callTool(String toolName, Object args) {
         long startTime = System.currentTimeMillis();
@@ -288,7 +302,16 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
                     toolInputs = new HashMap<>();
                 }
 
-                Map<String, Object> result = pluginClient.toolCall(currentNodeState, toolInputs);
+                Map<String, Object> result;
+
+                // 判断工具类型：code 执行 vs 插件调用
+                if ("code".equalsIgnoreCase(toolName)) {
+                    // 代码执行工具
+                    result = executeCode(toolInputs, span);
+                } else {
+                    // 插件工具
+                    result = pluginClient.toolCall(currentNodeState, toolInputs);
+                }
 
                 // 记录工具调用指标
                 long latencyMs = System.currentTimeMillis() - startTime;
@@ -312,6 +335,61 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
                 throw new RuntimeException("Tool call failed: " + e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * 执行代码
+     * <p>
+     * 支持 JavaScript 代码执行，集成全链路追踪
+     */
+    private Map<String, Object> executeCode(Map<String, Object> toolInputs, TraceContext.SpanWrapper span) {
+        String code = (String) toolInputs.get("code");
+        String language = (String) toolInputs.getOrDefault("language", "javascript");
+        Long timeoutMs = toolInputs.containsKey("timeout")
+                ? Long.valueOf(toolInputs.get("timeout").toString())
+                : 30000L;
+
+        if (code == null || code.isEmpty()) {
+            throw new IllegalArgumentException("Code cannot be null or empty");
+        }
+
+        // 设置追踪属性
+        span.setAttribute("code.language", language);
+        span.setAttribute("code.length", code.length());
+
+        // 构建请求
+        CodeExecutionRequest request = CodeExecutionRequest.builder()
+                .language(language)
+                .code(code)
+                .timeoutMs(timeoutMs)
+                .sandboxEnabled(true)
+                .build();
+
+        // 执行代码
+        CodeExecutionResult result = codeExecutor.execute(request);
+
+        // 设置追踪属性
+        span.setAttribute("code.success", result.isSuccess());
+        span.setAttribute("code.executionTimeMs", result.getExecutionTimeMs());
+        span.setAttribute("code.timeout", result.isTimeout());
+
+        // 构建结果
+        Map<String, Object> output = new HashMap<>();
+        output.put("success", result.isSuccess());
+        output.put("output", result.getOutput());
+        output.put("executionTimeMs", result.getExecutionTimeMs());
+        output.put("timeout", result.isTimeout());
+
+        if (!result.isSuccess()) {
+            output.put("error", result.getError());
+            output.put("errorType", result.getErrorType());
+        }
+
+        if (!result.isSuccess() && !result.isTimeout()) {
+            throw new RuntimeException("Code execution failed: " + result.getError());
+        }
+
+        return output;
     }
 
     /**

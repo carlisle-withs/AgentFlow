@@ -36,6 +36,7 @@
         <guava.version>33.5.0-jre</guava.version>
         <minio.version>8.5.7</minio.version>
         <dashscope-sdk-java.version>2.22.3</dashscope-sdk-java.version>
+        <graalvm.version>24.1.0</graalvm.version>
     </properties>
 
     <dependencies>
@@ -154,6 +155,19 @@
             <artifactId>opentelemetry-api</artifactId>
             <version>1.42.1</version>
         </dependency>
+
+        <!-- GraalVM JavaScript (for code execution) -->
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>polyglot</artifactId>
+            <version>${graalvm.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.graalvm.js</groupId>
+            <artifactId>js</artifactId>
+            <version>${graalvm.version}</version>
+            <type>pom</type>
+        </dependency>
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk</artifactId>
@@ -168,6 +182,11 @@
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-exporter-prometheus</artifactId>
             <version>1.42.1-alpha</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
+            <version>1.42.1</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>

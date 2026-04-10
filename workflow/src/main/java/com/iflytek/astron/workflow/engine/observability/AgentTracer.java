@@ -1,166 +1,203 @@
 package com.iflytek.astron.workflow.engine.observability;
 
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.function.Supplier;
 
 /**
  * Agent 全链路追踪器
  * 基于 OpenTelemetry，将 TraceID 贯穿 '请求-推理-执行' 全链路
  *
- * <p>追踪点：
+ * <p>追踪点（链路分层埋点）：
  * <ul>
- *   <li>请求入口 - WorkflowEngine</li>
- *   <li>节点执行 - AgentNodeExecutor</li>
- *   <li>LLM 推理 - ReActLoop/ModelServiceClient</li>
+ *   <li>HTTP入口 - WorkflowEngine</li>
+ *   <li>节点编排 - AgentNodeExecutor</li>
+ *   <li>LLM推理 - ReActLoop/ModelServiceClient</li>
  *   <li>工具执行 - PluginServiceClient</li>
  *   <li>计划生成 - Planner</li>
  *   <li>反思评估 - Reflect</li>
  *   <li>记忆操作 - Memory</li>
+ *   <li>节点输出 - Result</li>
  * </ul>
+ *
+ * <p>Span 层级结构：
+ * <pre>
+ * workflow.execute
+ *   └── workflow.node (AgentNodeExecutor)
+ *         └── agent.execute
+ *               ├── planner.generate
+ *               ├── llm.reasoning
+ *               ├── tool.execute
+ *               ├── reflect.evaluate
+ *               └── memory.operation
+ * </pre>
  */
 @Slf4j
 public class AgentTracer {
 
-    /**
-     * 创建 Agent 执行追踪 Span
-     */
-    public static TraceContext.SpanWrapper startAgentSpan(String nodeId, String nodeName) {
-        TraceContext.TraceInfo info = TraceContext.get();
-        if (info == null) {
-            info = TraceContext.create();
+    private static final AttributeKey<String> AGENT_NODE_ID = AttributeKey.stringKey("agent.node_id");
+    private static final AttributeKey<String> AGENT_NODE_NAME = AttributeKey.stringKey("agent.node_name");
+    private static final AttributeKey<String> LLM_MODEL_ID = AttributeKey.stringKey("llm.model_id");
+    private static final AttributeKey<String> LLM_PROMPT_TYPE = AttributeKey.stringKey("llm.prompt_type");
+    private static final AttributeKey<Long> LLM_PROMPT_TOKENS = AttributeKey.longKey("llm.prompt_tokens");
+    private static final AttributeKey<Long> LLM_RESPONSE_TOKENS = AttributeKey.longKey("llm.response_tokens");
+    private static final AttributeKey<Long> LLM_LATENCY_MS = AttributeKey.longKey("llm.latency_ms");
+    private static final AttributeKey<Boolean> LLM_SUCCESS = AttributeKey.booleanKey("llm.success");
+    private static final AttributeKey<String> TOOL_NAME = AttributeKey.stringKey("tool.name");
+    private static final AttributeKey<String> TOOL_CATEGORY = AttributeKey.stringKey("tool.category");
+    private static final AttributeKey<Long> TOOL_LATENCY_MS = AttributeKey.longKey("tool.latency_ms");
+    private static final AttributeKey<Boolean> TOOL_SUCCESS = AttributeKey.booleanKey("tool.success");
+    private static final AttributeKey<String> WORKFLOW_NODE_ID = AttributeKey.stringKey("workflow.node_id");
+    private static final AttributeKey<String> WORKFLOW_NODE_TYPE = AttributeKey.stringKey("workflow.node_type");
+    private static final AttributeKey<Long> WORKFLOW_LATENCY_MS = AttributeKey.longKey("workflow.latency_ms");
+    private static final AttributeKey<Boolean> WORKFLOW_SUCCESS = AttributeKey.booleanKey("workflow.success");
+    private static final AttributeKey<Boolean> SLOW = AttributeKey.booleanKey("slow");
+    private static final AttributeKey<Boolean> ERROR = AttributeKey.booleanKey("error");
+    private static final AttributeKey<String> PLANNER_TASK_TYPE = AttributeKey.stringKey("planner.task_type");
+    private static final AttributeKey<String> REFLECT_STEP = AttributeKey.stringKey("reflect.step");
+    private static final AttributeKey<String> MEMORY_OPERATION = AttributeKey.stringKey("memory.operation");
+    private static final AttributeKey<Long> MEMORY_SIZE = AttributeKey.longKey("memory.size");
+
+    private static Tracer tracer;
+
+    private AgentTracer() {
+    }
+
+    public static void setTracer(Tracer tracer) {
+        AgentTracer.tracer = tracer;
+    }
+
+    public static Tracer getTracer() {
+        return tracer;
+    }
+
+    public static <T> T executeWithSpan(String spanName, Supplier<T> operation) {
+        if (tracer == null) {
+            return operation.get();
         }
 
-        TraceContext.SpanWrapper span = TraceContext.span("agent.execute");
-        span.setAttribute("agent.nodeId", nodeId);
-        span.setAttribute("agent.nodeName", nodeName);
-        span.setAttribute("agent.traceId", info.getTraceId());
+        Span span = tracer.spanBuilder(spanName)
+                .setParent(Context.current())
+                .startSpan();
 
-        return span;
+        try (Scope scope = span.makeCurrent()) {
+            return operation.get();
+        } catch (Exception e) {
+            span.recordException(e);
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
-    /**
-     * 创建 LLM 推理追踪 Span
-     */
-    public static TraceContext.SpanWrapper startLlmSpan(String modelId, String promptType) {
-        TraceContext.SpanWrapper span = TraceContext.span("llm.reasoning");
-        span.setAttribute("llm.modelId", modelId);
-        span.setAttribute("llm.promptType", promptType);
-        return span;
+    public static <T> T executeWithSpan(String spanName, SpanKind kind, Attributes attributes, Supplier<T> operation) {
+        if (tracer == null) {
+            return operation.get();
+        }
+
+        Span span = tracer.spanBuilder(spanName)
+                .setSpanKind(kind)
+                .setParent(Context.current())
+                .setAllAttributes(attributes)
+                .startSpan();
+
+        try (Scope scope = span.makeCurrent()) {
+            return operation.get();
+        } catch (Exception e) {
+            span.recordException(e);
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
-    /**
-     * 创建工具执行追踪 Span
-     */
-    public static TraceContext.SpanWrapper startToolSpan(String toolName, String toolCategory) {
-        TraceContext.SpanWrapper span = TraceContext.span("tool.execute");
-        span.setAttribute("tool.name", toolName);
-        span.setAttribute("tool.category", toolCategory);
-        return span;
-    }
-
-    /**
-     * 创建计划生成追踪 Span
-     */
-    public static TraceContext.SpanWrapper startPlannerSpan(String taskType) {
-        TraceContext.SpanWrapper span = TraceContext.span("planner.generate");
-        span.setAttribute("planner.taskType", taskType);
-        return span;
-    }
-
-    /**
-     * 创建反思评估追踪 Span
-     */
-    public static TraceContext.SpanWrapper startReflectSpan(String stepDescription) {
-        TraceContext.SpanWrapper span = TraceContext.span("reflect.evaluate");
-        span.setAttribute("reflect.step", stepDescription);
-        return span;
-    }
-
-    /**
-     * 创建记忆操作追踪 Span
-     */
-    public static TraceContext.SpanWrapper startMemorySpan(String operation, int memorySize) {
-        TraceContext.SpanWrapper span = TraceContext.span("memory.operation");
-        span.setAttribute("memory.operation", operation);
-        span.setAttribute("memory.size", memorySize);
-        return span;
-    }
-
-    /**
-     * 创建工作流节点追踪 Span
-     */
-    public static TraceContext.SpanWrapper startWorkflowNodeSpan(String nodeId, String nodeType) {
-        TraceContext.SpanWrapper span = TraceContext.span("workflow.node");
-        span.setAttribute("workflow.nodeId", nodeId);
-        span.setAttribute("workflow.nodeType", nodeType);
-        return span;
-    }
-
-    /**
-     * 记录 LLM 调用指标
-     */
     public static void recordLlmCall(String modelId, String promptType,
-                                      int promptLength, int promptTokens,
-                                      int responseTokens, long latencyMs, boolean success) {
-        try (TraceContext.SpanWrapper span = startLlmSpan(modelId, promptType)) {
-            // 设置指标属性
-            span.setAttribute("llm.promptLength", promptLength);
-            span.setAttribute("llm.promptTokens", promptTokens);
-            span.setAttribute("llm.responseTokens", responseTokens);
-            span.setAttribute("llm.latencyMs", latencyMs);
-            span.setAttribute("llm.success", success);
+                                   int promptLength, int promptTokens,
+                                   int responseTokens, long latencyMs, boolean success) {
+        Attributes attributes = Attributes.builder()
+                .put(LLM_MODEL_ID, modelId)
+                .put(LLM_PROMPT_TYPE, promptType)
+                .put(LLM_PROMPT_TOKENS, (long) promptTokens)
+                .put(LLM_RESPONSE_TOKENS, (long) responseTokens)
+                .put(LLM_LATENCY_MS, latencyMs)
+                .put(LLM_SUCCESS, success)
+                .put(SLOW, latencyMs > 1000)
+                .put(ERROR, !success)
+                .build();
 
-            // 记录到指标中心
+        executeWithSpan("llm.reasoning", SpanKind.CLIENT, attributes, () -> {
+            log.debug("LLM call recorded: model={}, latency={}ms, success={}",
+                    modelId, latencyMs, success);
             AgentMetrics.recordLlmCall(modelId, promptLength, promptTokens,
                     responseTokens, latencyMs, success);
-        }
-    }
-
-    /**
-     * 记录工具调用指标
-     */
-    public static void recordToolCall(String toolName, String toolCategory, long latencyMs, boolean success) {
-        try (TraceContext.SpanWrapper span = startToolSpan(toolName, toolCategory)) {
-            span.setAttribute("tool.latencyMs", latencyMs);
-            span.setAttribute("tool.success", success);
-
-            AgentMetrics.recordPluginCall(toolName, latencyMs, success);
-        }
-    }
-
-    /**
-     * 获取当前追踪的摘要信息
-     */
-    public static TraceSummary getTraceSummary() {
-        TraceContext.TraceInfo info = TraceContext.get();
-        if (info == null) {
             return null;
-        }
+        });
+    }
 
+    public static void recordToolCall(String toolName, String toolCategory, long latencyMs, boolean success) {
+        Attributes attributes = Attributes.builder()
+                .put(TOOL_NAME, toolName)
+                .put(TOOL_CATEGORY, toolCategory)
+                .put(TOOL_LATENCY_MS, latencyMs)
+                .put(TOOL_SUCCESS, success)
+                .put(SLOW, latencyMs > 1000)
+                .put(ERROR, !success)
+                .build();
+
+        executeWithSpan("tool.execute", SpanKind.CLIENT, attributes, () -> {
+            log.debug("Tool call recorded: tool={}, latency={}ms, success={}",
+                    toolName, latencyMs, success);
+            AgentMetrics.recordPluginCall(toolName, latencyMs, success);
+            return null;
+        });
+    }
+
+    public static void recordWorkflowNode(String nodeId, String nodeType, long latencyMs, boolean success) {
+        Attributes attributes = Attributes.builder()
+                .put(WORKFLOW_NODE_ID, nodeId)
+                .put(WORKFLOW_NODE_TYPE, nodeType)
+                .put(WORKFLOW_LATENCY_MS, latencyMs)
+                .put(WORKFLOW_SUCCESS, success)
+                .put(SLOW, latencyMs > 1000)
+                .put(ERROR, !success)
+                .build();
+
+        executeWithSpan("workflow.node", SpanKind.INTERNAL, attributes, () -> {
+            log.debug("Workflow node recorded: node={}, type={}, latency={}ms",
+                    nodeId, nodeType, latencyMs);
+            AgentMetrics.recordWorkflowNodeExecution(nodeType, latencyMs);
+            return null;
+        });
+    }
+
+    public static TraceSummary getTraceSummary() {
         TraceSummary summary = new TraceSummary();
-        summary.setTraceId(info.getTraceId());
-        summary.setSpanId(info.getSpanId());
-        summary.setDepth(info.getDepth() != null ? info.getDepth().get() : 0);
-
-        // 获取指标快照
-        summary.setMetrics(AgentMetrics.getMetricsForCurrentTrace());
-
+        summary.setTraceId(TraceContext.getTraceId());
+        summary.setSpanId(TraceContext.getSpanId());
+        summary.setMetrics(AgentMetrics.snapshot());
         return summary;
     }
 
-    /**
-     * 追踪摘要
-     */
     @lombok.Data
     public static class TraceSummary {
         private String traceId;
         private String spanId;
-        private int depth;
         private java.util.Map<String, Object> metrics;
 
         public String toJson() {
             return String.format(
-                    "{\"traceId\":\"%s\",\"spanId\":\"%s\",\"depth\":%d,\"metrics\":%s}",
-                    traceId, spanId, depth, metrics != null ? metrics.toString() : "{}"
+                    "{\"traceId\":\"%s\",\"spanId\":\"%s\",\"metrics\":%s}",
+                    traceId, spanId, metrics != null ? metrics.toString() : "{}"
             );
         }
     }
