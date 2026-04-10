@@ -180,7 +180,6 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
 
         // 1. 初始化组件
         DefaultMemory memory = new DefaultMemory();
-        DefaultPlanner planner = new DefaultPlanner();
         DefaultReflect reflect = new DefaultReflect();
 
         // 2. 创建 ModelClient 和 ToolExecutor 适配器
@@ -188,10 +187,21 @@ public class AgentNodeExecutor extends AbstractNodeExecutor {
             return callLLM(node, prompt, nodeParam, context);
         };
 
+        DefaultPlanner.ModelClient plannerModelClient = prompt -> {
+            LlmReqBo req = new LlmReqBo();
+            req.setNodeId(node.getId());
+            req.setUserMsg(prompt);
+            req.setModel(getString(nodeParam, "modelId", "qwen-plus"));
+            req.setTemperature(getDouble(nodeParam, "temperature", 0.7));
+            LlmResVo res = modelClient.chatCompletion(req, null);
+            return res.content();
+        };
+
         DefaultReAct.ToolExecutor toolExecutorAdapter = (toolName, args, context) -> {
             return callTool(toolName, args);
         };
 
+        DefaultPlanner planner = new DefaultPlanner(plannerModelClient);
         DefaultReAct react = new DefaultReAct(modelClientAdapter, toolExecutorAdapter);
 
         // 3. 创建 Agent

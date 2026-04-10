@@ -3,6 +3,7 @@ package com.iflytek.astron.workflow.engine.observability;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -12,34 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.function.Supplier;
 
-/**
- * Agent 全链路追踪器
- * 基于 OpenTelemetry，将 TraceID 贯穿 '请求-推理-执行' 全链路
- *
- * <p>追踪点（链路分层埋点）：
- * <ul>
- *   <li>HTTP入口 - WorkflowEngine</li>
- *   <li>节点编排 - AgentNodeExecutor</li>
- *   <li>LLM推理 - ReActLoop/ModelServiceClient</li>
- *   <li>工具执行 - PluginServiceClient</li>
- *   <li>计划生成 - Planner</li>
- *   <li>反思评估 - Reflect</li>
- *   <li>记忆操作 - Memory</li>
- *   <li>节点输出 - Result</li>
- * </ul>
- *
- * <p>Span 层级结构：
- * <pre>
- * workflow.execute
- *   └── workflow.node (AgentNodeExecutor)
- *         └── agent.execute
- *               ├── planner.generate
- *               ├── llm.reasoning
- *               ├── tool.execute
- *               ├── reflect.evaluate
- *               └── memory.operation
- * </pre>
- */
 @Slf4j
 public class AgentTracer {
 
@@ -77,6 +50,51 @@ public class AgentTracer {
 
     public static Tracer getTracer() {
         return tracer;
+    }
+
+    public static TraceContext.SpanWrapper startAgentSpan(String nodeId, String nodeName) {
+        if (tracer == null) {
+            return new TraceContext.SpanWrapper("agent.execute", Span.getInvalid(), null);
+        }
+
+        Span span = tracer.spanBuilder("agent.execute")
+                .setSpanKind(SpanKind.INTERNAL)
+                .setParent(Context.current())
+                .setAttribute("agent.node_id", nodeId)
+                .setAttribute("agent.node_name", nodeName)
+                .startSpan();
+
+        return new TraceContext.SpanWrapper("agent.execute", span, span.getSpanContext().getTraceId());
+    }
+
+    public static TraceContext.SpanWrapper startLlmSpan(String modelId, String promptType) {
+        if (tracer == null) {
+            return new TraceContext.SpanWrapper("llm.reasoning", Span.getInvalid(), null);
+        }
+
+        Span span = tracer.spanBuilder("llm.reasoning")
+                .setSpanKind(SpanKind.CLIENT)
+                .setParent(Context.current())
+                .setAttribute("llm.model_id", modelId)
+                .setAttribute("llm.prompt_type", promptType)
+                .startSpan();
+
+        return new TraceContext.SpanWrapper("llm.reasoning", span, span.getSpanContext().getTraceId());
+    }
+
+    public static TraceContext.SpanWrapper startToolSpan(String toolName, String toolCategory) {
+        if (tracer == null) {
+            return new TraceContext.SpanWrapper("tool.execute", Span.getInvalid(), null);
+        }
+
+        Span span = tracer.spanBuilder("tool.execute")
+                .setSpanKind(SpanKind.CLIENT)
+                .setParent(Context.current())
+                .setAttribute("tool.name", toolName)
+                .setAttribute("tool.category", toolCategory)
+                .startSpan();
+
+        return new TraceContext.SpanWrapper("tool.execute", span, span.getSpanContext().getTraceId());
     }
 
     public static <T> T executeWithSpan(String spanName, Supplier<T> operation) {
