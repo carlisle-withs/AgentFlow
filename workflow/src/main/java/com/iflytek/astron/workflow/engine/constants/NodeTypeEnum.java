@@ -27,6 +27,7 @@ public enum NodeTypeEnum {
     QUESTION_ANSWER("question-answer"),
     DATABASE("database"),
     RPA("rpa"),
+    HTTP("http-request"),
 
     CONDITION_SWITCH_NORMAL_ONE_OF("normal_one_of"),
     CONDITION_SWITCH_INTENT_CHAIN("intent_chain"),
