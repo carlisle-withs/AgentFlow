@@ -13,7 +13,7 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql-data:/var/lib/mysql
       - ./mysql/my.cnf:/etc/mysql/conf.d/charset.cnf:ro
       - ./mysql:/docker-entrypoint-initdb.d
     networks:
@@ -29,7 +29,7 @@ services:
     image: docker.m.daocloud.io/library/redis:7
     container_name: agentflow-redis
     volumes:
-      - redis_data:/data
+      - redis-data:/data
     networks:
       - agentflow-network
     restart: always
@@ -49,7 +49,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_data:/data
+      - minio-data:/data
     networks:
       - agentflow-network
     restart: always
@@ -244,10 +244,10 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
-  redis_data:
-  minio_data:
-  tempo_data:
-  prometheus_data:
-  loki_data:
-  grafana_data:
+  mysql-data:
+  redis-data:
+  minio-data:
+  tempo-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
